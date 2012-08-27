@@ -11,7 +11,6 @@ import views.plotwindow as plotwindow
 import views.preview_window as preview_window
 import views.dialogs as dlg
 from views import podtk
-from views import adatk
 import controllers.pathfinder as pathfinder
 import controllers.open_file as open_file
 import wx
@@ -556,8 +555,3 @@ class MainUIController(object):
         """Handles request to run POD Toolkit"""
         podtk_ui = podtk.PODWindow(parent=self.view)
         podtk_ui.Show()
-
-    def on_run_adatk(self, evt):
-        """Handles request to run ADA Toolkit"""
-        adatk_ui = adatk.ADAWindow(parent=self.view)
-        adatk_ui.Show()
