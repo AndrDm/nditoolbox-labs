@@ -73,6 +73,10 @@ class UI(wx.Frame):
                                  help="Runs the Probability Of Detection Toolkit")
         self.tool_mnu.AppendItem(podtk_mnui)
         self.Bind(wx.EVT_MENU, self.controller.on_run_podtk, id=podtk_mnui.GetId())
+        adatk_mnui = wx.MenuItem(self.tool_mnu, wx.ID_ANY, text="ADA Toolkit",
+            help="Runs the Automated Defect Analysis Toolkit")
+        self.tool_mnu.AppendItem(adatk_mnui)
+        self.Bind(wx.EVT_MENU, self.controller.on_run_adatk, id=adatk_mnui.GetId())
         self.prefs_mnu = wx.Menu() # Preferences Menu
         userpath_mnui = wx.MenuItem(self.prefs_mnu, wx.ID_ANY, text="Choose Data Folder...",
                                     help="Specify the local storage folder")

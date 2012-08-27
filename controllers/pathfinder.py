@@ -130,6 +130,10 @@ def podmodels_path():
     """Returns the path to POD Toolkit models"""
     return os.path.join(user_path(), "podmodels")
 
+@normalized
+def adamodels_path():
+    """Returns the path to POD Toolkit models"""
+    return os.path.join(user_path(), "ada")
 
 @normalized
 def gates_path():
