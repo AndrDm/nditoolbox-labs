@@ -202,8 +202,7 @@ class TestRemotePODModelInstaller(test_plugin_installer.TestRemotePluginInstalle
         """Creates a SimpleHTTPServer instance to handle a single
         request.  Use self.server_thd.start() to initiate."""
         self.server_thd = threading.Thread(target=TestRemotePODModelInstaller.httpd.handle_request)
-        self.good_plugin_installer = podmodel_installer.RemotePODModelInstaller(self
-        .good_plugin_url)
+        self.good_plugin_installer = podmodel_installer.RemotePODModelInstaller(self.good_plugin_url)
         self.plugin_reader = zipper.UnZipper(self.good_plugin)
 
     def tearDown(self):
