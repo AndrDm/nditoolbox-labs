@@ -116,5 +116,10 @@ class TestPathFinder(unittest.TestCase):
         """Verify returning correct path to log file"""
         self.assertEqual(self.log_path, pathfinder.log_path())
 
+    def test_adamodels_path(self):
+        """Verify returning correct path to ADA models"""
+        ada_path = os.path.join(self.user_path, 'ada')
+        self.assertEqual(ada_path, pathfinder.adamodels_path())
+
 if __name__ == "__main__":
     unittest.main()
