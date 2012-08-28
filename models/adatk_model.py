@@ -8,57 +8,22 @@ __author__ = 'Chris R. Coughlin and John C. Aldrin'
 from controllers import pathfinder
 from models import abstractplugin
 from models import mainmodel
+from models import podtk_model
 from configobj import ConfigObj
-import imp
-import inspect
 import os.path
-import sys
 
-class ADAWindowModel(object):
+
+class ADAWindowModel(podtk_model.PODWindowModel):
     """Model for the ADAWindow UI"""
-
-    def __init__(self, controller):
-        self.controller = controller
 
     def load_models(self):
         """Searches the ADA Models folder and imports all valid models,
         returning a list of the models successfully imported as tuples:
         first element is the model name (e.g. AHat_v_A), second element is
         the class of the model."""
-        models_folder = pathfinder.adamodels_path()
-        ada_models = []
-        if not models_folder in sys.path:
-            sys.path.append(models_folder)
-        for root, dirs, files in os.walk(pathfinder.adamodels_path()):
-            for model_file in files:
-                model_name, model_extension = os.path.splitext(model_file)
-                module_hdl = None
-                if model_extension == os.extsep + "py":
-                    try:
-                        module_hdl, path_name, description = imp.find_module(model_name)
-                        adamodel_module = imp.load_module(model_name, module_hdl, path_name,
-                                                          description)
-                        adamodel_classes = inspect.getmembers(adamodel_module, inspect.isclass)
-                        for adamodel_class in adamodel_classes:
-                            if issubclass(adamodel_class[1], ADAModel):
-                                if adamodel_class[1].__module__ == model_name:
-                                    ada_models.append(adamodel_class)
-                    finally:
-                        if module_hdl is not None:
-                            module_hdl.close()
-        return ada_models
+        return mainmodel.load_dynamic_modules(pathfinder.adamodels_path(), ADAModel)
 
-    @classmethod
-    def load_data(cls, file_name):
-        """Returns NumPy array from the specified file."""
-        return mainmodel.get_data(file_name)
-
-    @classmethod
-    def save_data(cls, file_name, data):
-        """Saves NumPy array data to the specified file name"""
-        mainmodel.save_data(file_name, data)
-
-class ADAModel(abstractplugin.AbstractPlugin):
+class ADAModel(abstractplugin.ComputationalToolsPlugin):
     """Base analysis class for the ADA Toolkit"""
     description = ""
     inputdata = {}

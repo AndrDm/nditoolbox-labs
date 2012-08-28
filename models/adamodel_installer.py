@@ -3,8 +3,14 @@
 Chris R. Coughlin (TRI/Austin, Inc.) and John C. Aldrin (Computational Tools)
 """
 
+from controllers import pathfinder
 from models import podmodel_installer
 from models.fetcher import Fetcher
+from models.zipper import UnZipper
+from models.mainmodel import get_logger
+import os.path
+
+module_logger = get_logger(__name__)
 
 class ADAModelInstaller(podmodel_installer.PODModelInstaller):
     """Subclass of PluginInstaller:  installs local ADA Model archives, supports global
@@ -13,6 +19,26 @@ class ADAModelInstaller(podmodel_installer.PODModelInstaller):
     def __init__(self, plugin_url, zip_password=None):
         super(ADAModelInstaller, self).__init__(plugin_url, zip_password)
 
+    def install_plugin(self):
+        """Installs the ADA model in the default ADA models path.  Returns True if installation succeeded."""
+        plugin_path = pathfinder.adamodels_path()
+        if self.plugin is not None:
+            plugin_zip = UnZipper(self.plugin_contents, self.zip_password)
+            if self.verify_plugin():
+                plugin_files = [each_file for each_file in plugin_zip.list_contents() if
+                                each_file not in self.readme_files]
+                for each_file in plugin_files:
+                    plugin_zip.extract(each_file, plugin_path)
+                    if not os.path.exists(os.path.join(plugin_path, each_file)):
+                        module_logger.warning("Plugin installation failed.")
+                        return False
+            else:
+                module_logger.warning("Plugin installation failed - plugin does not conform to spec.")
+                return False
+        else:
+            module_logger.warning("Plugin installation failed - plugin is not set.")
+            return False
+        return True
 
 class RemoteADAModelInstaller(ADAModelInstaller):
     """Fetches and installs remote ADA models.  Supports
