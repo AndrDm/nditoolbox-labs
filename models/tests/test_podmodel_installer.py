@@ -235,18 +235,22 @@ class TestRemotePODModelInstaller(test_plugin_installer.TestRemotePluginInstalle
         verifies handling of encrypted ZIPs"""
         sample_plugin_url = TestRemotePODModelInstaller.plugin_url('good_podmodel.zip')
         installed_plugin_name = os.path.join(pathfinder.podmodels_path(), 'good_podmodel.py')
+        installed_plugin_cfg = os.path.join(pathfinder.podmodels_path(), 'good_podmodel.cfg')
         installer = podmodel_installer.RemotePODModelInstaller(sample_plugin_url)
         installer.fetch()
         self.assertTrue(installer.verify_plugin())
         install_success = installer.install_plugin()
         self.assertTrue(os.path.exists(installed_plugin_name))
+        self.assertTrue(os.path.exists(installed_plugin_cfg))
         self.assertTrue(install_success)
         # Clean up - attempt to remove the sample plugin if it already exists
-        if os.path.exists(installed_plugin_name):
-            try:
-                os.remove(installed_plugin_name)
-            except WindowsError: # file in use
-                return
+        for mdl_file in [installed_plugin_name, installed_plugin_cfg]:
+            if os.path.exists(mdl_file):
+                try:
+                    os.remove(mdl_file)
+                except WindowsError: # file in use
+                    return
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,13 +6,12 @@ Chris R. Coughlin (TRI/Austin, Inc.)
 __author__ = 'Chris R. Coughlin'
 
 import unittest
+from controllers import pathfinder
 from models import adamodel_installer as adamodel_installer
 from models.tests import test_podmodel_installer
 import models.zipper as zipper
+import os.path
 import random
-import SimpleHTTPServer
-import SocketServer
-import threading
 
 class TestADAModelInstaller(test_podmodel_installer.TestPODModelInstaller):
     """Tests the ADAModelInstaller class"""
@@ -63,14 +62,6 @@ class TestADAModelInstaller(test_podmodel_installer.TestPODModelInstaller):
 class TestRemoteADAModelInstaller(test_podmodel_installer.TestRemotePODModelInstaller):
     """Tests the RemoteADAModelInstaller class"""
 
-    @classmethod
-    def setUpClass(cls):
-        """Create a SimpleHTTPServer instance to serve test files from the support_files folder"""
-        cls.PORT = 8000 + random.randint(1, 1000)
-        req_handler = SimpleHTTPServer.SimpleHTTPRequestHandler
-        cls.httpd = SocketServer.TCPServer(("localhost", cls.PORT), req_handler)
-        cls.httpd.timeout = 5
-
     @property
     def good_plugin(self):
         """Returns the path and filename to the known good ADA model"""
@@ -116,9 +107,29 @@ class TestRemoteADAModelInstaller(test_podmodel_installer.TestRemotePODModelInst
     def setUp(self):
         """Creates a SimpleHTTPServer instance to handle a single
         request.  Use self.server_thd.start() to initiate."""
-        self.server_thd = threading.Thread(target=TestRemoteADAModelInstaller.httpd.handle_request)
         self.good_plugin_installer = adamodel_installer.RemoteADAModelInstaller(self.good_plugin_url)
         self.plugin_reader = zipper.UnZipper(self.good_plugin)
+
+    def test_install_plugin(self):
+        """Verify install_plugin method correctly installs a plugin; also
+        verifies handling of encrypted ZIPs"""
+        sample_plugin_url = TestRemoteADAModelInstaller.plugin_url('good_adamodel.zip')
+        installed_plugin_name = os.path.join(pathfinder.adamodels_path(), 'good_adamodel.py')
+        installed_plugin_cfg = os.path.join(pathfinder.adamodels_path(), 'good_adamodel.cfg')
+        installer = adamodel_installer.RemoteADAModelInstaller(sample_plugin_url)
+        installer.fetch()
+        self.assertTrue(installer.verify_plugin())
+        install_success = installer.install_plugin()
+        self.assertTrue(os.path.exists(installed_plugin_name))
+        self.assertTrue(os.path.exists(installed_plugin_cfg))
+        self.assertTrue(install_success)
+        # Clean up - attempt to remove the sample plugin if it already exists
+        for mdl_file in [installed_plugin_name, installed_plugin_cfg]:
+            if os.path.exists(mdl_file):
+                try:
+                    os.remove(mdl_file)
+                except WindowsError: # file in use
+                    return
 
 if __name__ == "__main__":
     random.seed()
