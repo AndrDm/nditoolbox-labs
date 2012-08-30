@@ -147,7 +147,10 @@ class ADAWindowController(object):
         item, flags = self.view.modeltree.HitTest(click_pos)
         if item:
             self.view.modeltree.SelectItem(item)
-            self.view.tree_popup(click_pos)
+            # Aug-30-2012 [crc] - disable context menu
+            # until input/output data file issue resolved (ADA models
+            # spec multiple file inputs/outputs that aren't files)
+            #self.view.tree_popup(click_pos)
 
     def on_edit_inputdata(self, evt):
         """Handles request to load input data into worksheet"""

@@ -22,6 +22,9 @@ class TestADAWindowModel(test_podtk_model.TestPODWindowModel):
         self.sample_data_basename = "sample.dat"
         self.sample_data_file = os.path.join(os.path.dirname(__file__),
                                              self.sample_data_basename)
+        self.sample_csvdata_basename = "sample.csv"
+        self.sample_csvdata_file = os.path.join(os.path.dirname(__file__), self.sample_csvdata_basename)
+        np.savetxt(self.sample_csvdata_file, self.sample_data, delimiter=",")
         with h5py.File(self.sample_data_file, 'w') as fidout:
             fidout.create_dataset(self.sample_data_basename, data=self.sample_data)
 
