@@ -254,6 +254,8 @@ class ADAWindow(wx.Frame):
             style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_DONTWRAP)
         #
         self.output_grid = self.creategrid(self.ctrl_panel2)
+        self.Bind(wx.grid.EVT_GRID_SELECT_CELL, self.controller.on_grid_cellselected,self.output_grid)
+        #
         self.output_tb = self.creategrid_toolbar(self.ctrl_panel2)
         self.init_runpropertiesgrid(self.ctrl_panel2) # self.runprops_panel
         self.init_globalplot(self.ctrl_panel2) # self.globalplot_panel
@@ -303,6 +305,7 @@ class ADAWindow(wx.Frame):
             70, 90, 92, False, wx.EmptyString))
         #
         self.output_grid2 = self.creategrid(self.ctrl_panel3)
+        self.Bind(wx.grid.EVT_GRID_SELECT_CELL, self.controller.on_grid2_cellselected,self.output_grid2)
         self.output_tb2 = self.creategrid_toolbar(self.ctrl_panel3)
         #
         panel3_text2 = wx.StaticText(self.ctrl_panel3, wx.ID_ANY, u'Call Description')
@@ -466,8 +469,11 @@ class ADAWindow(wx.Frame):
 
         self.lp_listbox1 = wx.ListBox(self.localplot2_panel, 4, wx.DefaultPosition, (170, 60), plot_list, wx.LB_SINGLE)
         self.lp_listbox1.SetSelection(0)
+        self.lp_listbox1.Bind(wx.EVT_LISTBOX, self.controller.on_lplistbox1_change)
+
         self.lp_listbox2 = wx.ListBox(self.localplot2_panel, 4, wx.DefaultPosition, (170, 60), plot_list, wx.LB_SINGLE)
         self.lp_listbox2.SetSelection(1)
+        self.lp_listbox2.Bind(wx.EVT_LISTBOX, self.controller.on_lplistbox2_change)
 
         self.localplot2_panel_sizer.Add(self.lp_lbl, ui_defaults.lbl_pct,
             ui_defaults.sizer_flags, ui_defaults.widget_margin)

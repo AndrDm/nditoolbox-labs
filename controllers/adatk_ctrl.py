@@ -20,6 +20,8 @@ class ADAWindowController(object):
     def __init__(self, view):
         self.view = view
         self.model = ADAWindowModel(self)
+        self.indcombo_des = None
+        self.indcombo_txt = None
 
     def get_models(self):
         """Retrieves the list of ADAModels
@@ -182,6 +184,31 @@ class ADAWindowController(object):
                 self.view.modeltree.SelectItem(selected_input_data)
                 self.refresh_mpgrid(selected_input_data)
 
+    def on_grid_cellselected(self, evt):
+        """Handles selection change event in output_grid """
+        #int_r = evt.Row
+        int_c = evt.Col
+        self.view.txtoutput_tc.Clear()
+        # check if self.indcombo_des was created
+        if self.indcombo_des is not None:
+            self.view.txtoutput_tc.WriteText(self.indcombo_des[int_c])
+        else:
+            self.view.txtoutput_tc.WriteText(str(int_c))
+    #
+        evt.Skip()
+
+    def on_grid2_cellselected(self, evt):
+        """Handles selection change event in output_grid """
+        int_r = evt.Row
+        int_c = evt.Col
+        self.view.txtind.Clear()
+        self.view.txtind.WriteText(str(int_r))
+        model = self.view.modeltree.get_model()
+        model.idx_localplot = int_r
+        evt.Skip()
+        self.on_lplistbox1_change(evt)
+        self.on_lplistbox2_change(evt)
+
     def on_sheet_tool_click(self, evt):
         """Handles toolbar button clicks in the spreadsheet -
         currently supports Open File (id=20) and Save File (id=30)."""
@@ -261,6 +288,14 @@ class ADAWindowController(object):
                     self.view.figure0.clear()  #in case there are extra axes like colorbars
                     self.view.axes0 = self.view.figure0.add_subplot(111, navigate=True)
                     cax = self.view.axes0.imshow(model.res_outputdata[idx])
+                    #
+                    Nr1, Nc1 = model._data.shape
+                    for idx in range(Nr1):
+                        xc = model._data[idx,1]
+                        yc = model._data[idx,2]
+                        tc = str(idx+1)
+                        self.view.axes0.text(xc,yc,tc)
+                    #
                     self.view.colorbar = self.view.figure0.colorbar(cax)
                     self.view.axes0.set_xlabel('x')
                     self.view.axes0.set_ylabel('y')
@@ -276,6 +311,82 @@ class ADAWindowController(object):
                     self.view.axes0.set_ylabel("V ()")
                     self.view.plot0_panel.Show()
                     self.refresh_plot0()
+        except ValueError: # No model selected
+            err_dlg = wx.MessageDialog(self.view, caption="No Model Selected",
+                message="Please select a ADA Model.",
+                style=wx.OK | wx.ICON_ERROR)
+            err_dlg.ShowModal()
+            err_dlg.Destroy()
+
+    def on_lplistbox1_change(self, evt):
+        """Handles selection change event for self.gp_listbox """
+        #idx = self.view.gp_listbox.GetSelection()
+        #self.view.txtoutput_tc.Clear()
+        #self.on_testrunmodel(evt)
+        try:
+            model = self.view.modeltree.get_model()
+            i_row = model.idx_localplot
+            if model.res_inddata is not None:
+                # Get lp_listbox seleciton for plot1
+                idx = self.view.lp_listbox1.GetSelection()
+                # Create plot0 (either C-scan or A-scan)
+                Nr, Nc = model.res_inddata[idx][i_row].shape
+                if Nr >= 3:
+                    self.view.axes1.clear()
+                    self.view.figure1.clear()  #in case there are extra axes like colorbars
+                    self.view.axes1 = self.view.figure1.add_subplot(111, navigate=True)
+                    cax = self.view.axes1.imshow(model.res_inddata[idx][i_row])
+                    self.view.colorbar = self.view.figure1.colorbar(cax)
+                    self.view.axes1.set_xlabel('x')
+                    self.view.axes1.set_ylabel('y')
+                    self.view.plot_panel.Show()
+                    self.refresh_plots()
+                else:
+                    self.view.axes1.clear()
+                    self.view.figure1.clear() #in case there are extra axes like colorbars
+                    self.view.axes1 = self.view.figure1.add_subplot(111, navigate=True)
+                    M = model.res_inddata[idx][i_row]
+                    self.view.axes1.plot(M[0,:].copy(), M[1,:].copy(), 'k-')
+                    self.view.axes1.set_xlabel("t (steps)")
+                    self.view.axes1.set_ylabel("V ()")
+                    self.view.plot_panel.Show()
+                    self.refresh_plots()
+        except ValueError: # No model selected
+            err_dlg = wx.MessageDialog(self.view, caption="No Model Selected",
+                message="Please select a ADA Model.",
+                style=wx.OK | wx.ICON_ERROR)
+            err_dlg.ShowModal()
+            err_dlg.Destroy()
+
+    def on_lplistbox2_change(self, evt):
+        try:
+            model = self.view.modeltree.get_model()
+            i_row = model.idx_localplot
+            if model.res_inddata is not None:
+                # Get lp_listbox seleciton for plot1
+                idx = self.view.lp_listbox2.GetSelection()
+                # Create plot0 (either C-scan or A-scan)
+                Nr, Nc = model.res_inddata[idx][i_row].shape
+                if Nr >= 3:
+                    self.view.axes2.clear()
+                    self.view.figure2.clear()  #in case there are extra axes like colorbars
+                    self.view.axes2 = self.view.figure2.add_subplot(111, navigate=True)
+                    cax = self.view.axes2.imshow(model.res_inddata[idx][i_row])
+                    self.view.colorbar = self.view.figure2.colorbar(cax)
+                    self.view.axes2.set_xlabel('x')
+                    self.view.axes2.set_ylabel('y')
+                    self.view.plot_panel.Show()
+                    self.refresh_plots()
+                else:
+                    self.view.axes2.clear()
+                    self.view.figure2.clear() #in case there are extra axes like colorbars
+                    self.view.axes2 = self.view.figure2.add_subplot(111, navigate=True)
+                    M = model.res_inddata[idx][i_row]
+                    self.view.axes2.plot(M[0,:].copy(), M[1,:].copy(), 'k-')
+                    self.view.axes2.set_xlabel("t (steps)")
+                    self.view.axes2.set_ylabel("V ()")
+                    self.view.plot_panel.Show()
+                    self.refresh_plots()
         except ValueError: # No model selected
             err_dlg = wx.MessageDialog(self.view, caption="No Model Selected",
                 message="Please select a ADA Model.",
@@ -499,8 +610,13 @@ class ADAWindowController(object):
             self.view.lp_listbox2.SetSelection(n_lp2)
             # need to store order and dimension for local plotting
             ############################################################
+            self.view.txtind.Clear()
             self.view.txtind.WriteText("Test Call Description")
+            self.view.txtoutput_tc.Clear()
             self.view.txtoutput_tc.WriteText("Test Status")
+            #
+            self.populate_paraspreadsheet_headers(self.view.input_grid)
+
         except ValueError: # No model selected
             err_dlg = wx.MessageDialog(self.view, caption="No Model Selected",
                 message="Please select a ADA Model.",
@@ -550,6 +666,7 @@ class ADAWindowController(object):
                 #    for key, value in model_instance.settings.iteritems():
                 #        self.view.txtoutput_tc.WriteText(model_instance.results)
                     if model_instance.results is not None: # Model return output text to display
+                        self.view.txtoutput_tc.Clear()
                         self.view.txtoutput_tc.WriteText(model_instance.results)
                     self.refresh_plots()
                     self.refresh_plot0()
@@ -584,13 +701,14 @@ class ADAWindowController(object):
                 colnum = 0
                 for cell in data_array[row]:
                     spreadsheet_ctrl.SetCellValue(rownum, colnum, str(cell))
+                    spreadsheet_ctrl.SetCellValue(rownum, colnum, "{0:.2f}".format(cell))
                     colnum += 1
                 rownum += 1
         elif data_array.ndim == 1:
             spreadsheet_ctrl.SetNumberCols(1)
             for el in data_array:
                 spreadsheet_ctrl.AppendRows(1)
-                spreadsheet_ctrl.SetCellValue(rownum, 0, str(el))
+                #spreadsheet_ctrl.SetCellValue(rownum, 0, "{0:.2f}".format(el))
                 rownum += 1
         self.populate_spreadsheet_headers(spreadsheet_ctrl)
 
@@ -629,3 +747,31 @@ class ADAWindowController(object):
         self.indcombo_des = indcall_des + indmetric_des
         for row in range(len(self.indcombo_txt)):
             spreadsheet_ctrl.SetColLabelValue(row,self.indcombo_txt[row])
+
+    def populate_paraspreadsheet_headers(self, spreadsheet_ctrl):
+        spreadsheet_ctrl.ClearGrid()
+        spreadsheet_ctrl.SetNumberRows(0)
+        #
+        model = self.view.modeltree.get_model()
+        names_txt = []
+        names_idx = []
+        names_des = []
+        names_val = []
+        for paramname, param2 in sorted(model.params.iteritems()):
+            names_txt.append(param2['name'])
+            names_idx.append(param2['index'])
+            names_des.append(param2['description'])
+            names_val.append(param2['value'])
+        param_txt = [' ']*len(names_idx)
+        param_des = [' ']*len(names_idx)
+        param_val = [' ']*len(names_idx)
+        for idx in range(len(names_idx)):
+            idx2 = int(names_idx[idx])-1
+            param_txt[idx2] = names_txt[idx]
+            param_des[idx2] = names_des[idx]
+            param_val[idx2] = names_val[idx]
+            #
+        for row in range(len(param_txt)):
+            spreadsheet_ctrl.AppendRows(1)
+            spreadsheet_ctrl.SetRowLabelValue(row, param_txt[row])
+            spreadsheet_ctrl.SetCellValue(row, 0, param_val[row])
