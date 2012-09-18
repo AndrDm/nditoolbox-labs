@@ -15,6 +15,7 @@ from views import adatk
 import controllers.pathfinder as pathfinder
 import controllers.open_file as open_file
 import wx
+import gc
 import imp
 import os.path
 import Queue
@@ -313,6 +314,7 @@ class MainUIController(object):
     def on_choose_loglevel(self, evt):
         """Handles request to set the log level severity"""
         available_log_levels = mainmodel.available_log_levels
+        current_log_level_str = available_log_levels[0]
         log_level_strs = available_log_levels.keys()
         current_log_level = mainmodel.get_loglevel()
         for log_str, log_lvl in available_log_levels.iteritems():
@@ -325,6 +327,15 @@ class MainUIController(object):
         if choose_logging_level_dlg.ShowModal() == wx.ID_OK:
             mainmodel.set_loglevel(choose_logging_level_dlg.GetStringSelection())
         choose_logging_level_dlg.Destroy()
+
+    def on_gc(self, evt):
+        """Handles request to run a full garbage collection"""
+        unreachable_objects = gc.collect()
+        info_msg = "Garbage collection successful, identified {0} objects.".format(unreachable_objects)
+        info_dlg = wx.MessageDialog(self.view, message=info_msg,
+                                   caption="Collection Complete", style=wx.ICON_INFORMATION)
+        info_dlg.ShowModal()
+        info_dlg.Destroy()
 
     def on_import_text(self, evt):
         """Handles request to add ASCII data to data folder"""
@@ -508,11 +519,14 @@ class MainUIController(object):
     def on_preview_data(self, evt):
         """Handles request to preview data"""
         if self.view.data_panel.data is not None:
-            wx.BeginBusyCursor()
-            data_window = preview_window.PreviewWindow(parent=self.view,
-                                                       data_file=self.view.data_panel.data)
-            data_window.Show()
-            wx.EndBusyCursor()
+            try:
+                wx.BeginBusyCursor()
+                data_window = preview_window.PreviewWindow(parent=self.view,
+                                                           data_file=self.view.data_panel.data)
+                if data_window.has_data():
+                    data_window.Show()
+            finally:
+                wx.EndBusyCursor()
 
 
     def on_plot_data(self, evt):
@@ -520,7 +534,7 @@ class MainUIController(object):
         if self.view.data_panel.data is not None:
             wx.BeginBusyCursor()
             plt_window = plotwindow.PlotWindow(self.view, data_file=self.view.data_panel.data)
-            if plt_window.has_data:
+            if plt_window.has_data():
                 plt_window.Show()
             wx.EndBusyCursor()
 
@@ -528,11 +542,15 @@ class MainUIController(object):
         """Handles request to generate image plot of selected data"""
         if self.view.data_panel.data is not None:
             wx.BeginBusyCursor()
-            plt_window = plotwindow.ImgPlotWindow(parent=self.view,
-                                                  data_file=self.view.data_panel.data)
-            if plt_window.has_data:
-                plt_window.Show()
-            wx.EndBusyCursor()
+            try:
+                plt_window = plotwindow.ImgPlotWindow(parent=self.view,
+                                                      data_file=self.view.data_panel.data)
+                if plt_window.has_data():
+                    plt_window.Show()
+            except Exception: # Error occurred
+                return
+            finally:
+                wx.EndBusyCursor()
 
     def on_megaplot_data(self, evt):
         """Handles request to generate megaplot of selected data"""
@@ -540,7 +558,7 @@ class MainUIController(object):
             wx.BeginBusyCursor()
             try:
                 plt_window = plotwindow.MegaPlotWindow(parent=self.view, data_file=self.view.data_panel.data)
-                if plt_window.has_data:
+                if plt_window.has_data():
                     plt_window.Show()
             except IndexError: # data not 3D
                 module_logger.error("User attempted to use MegaPlot on data that is not three-dimensional.")
