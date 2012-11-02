@@ -121,5 +121,10 @@ class TestPathFinder(unittest.TestCase):
         ada_path = os.path.join(self.user_path, 'ada')
         self.assertEqual(ada_path, pathfinder.adamodels_path())
 
+    def test_colormaps_path(self):
+        """Verify returning correct path to colormaps"""
+        colormaps_path = os.path.join(self.user_path, "colormaps")
+        self.assertEqual(colormaps_path, pathfinder.colormaps_path())
+
 if __name__ == "__main__":
     unittest.main()

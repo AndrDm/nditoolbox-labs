@@ -39,7 +39,8 @@ def deleted_user_path():
     Returns a list of folders successfully deleted or None if no folders
     were deleted."""
     data_folders = [pathfinder.user_path(), pathfinder.data_path(), pathfinder.thumbnails_path(),
-                    pathfinder.plugins_path(), pathfinder.podmodels_path(), pathfinder.adamodels_path()]
+                    pathfinder.plugins_path(), pathfinder.podmodels_path(), pathfinder.adamodels_path(),
+                    pathfinder.colormaps_path()]
     deleted_folders = []
     for folder in data_folders:
         exists_and_empty = os.path.exists(folder) and os.listdir(folder) == []
@@ -113,7 +114,7 @@ class TestMainModel(unittest.TestCase):
         data_folders = [pathfinder.user_path(), pathfinder.data_path(),
                         pathfinder.thumbnails_path(), pathfinder.gates_path(),
                         pathfinder.plugins_path(), pathfinder.podmodels_path(),
-                        pathfinder.adamodels_path()]
+                        pathfinder.adamodels_path(), pathfinder.colormaps_path()]
         self.model.check_user_path()
         for folder in data_folders:
             self.assertTrue(os.path.exists(folder))
@@ -148,6 +149,9 @@ class TestMainModel(unittest.TestCase):
         """Verify main model copies system ultrasonic gate plugins to the user's
         gates folder."""
         self.copy_system_gates()
+    def test_copy_system_colormaps(self):
+        """Verify main model copies colormaps to the user's colormaps folder."""
+        self.copy_system_colormaps()
 
     def copy_system_plugins(self):
         """Verify system plugins are copied to the user's plugins folder"""
@@ -168,6 +172,16 @@ class TestMainModel(unittest.TestCase):
         for gate in gate_plugins:
             installed_gate = os.path.join(pathfinder.gates_path(), gate)
             self.assertTrue(os.path.exists(installed_gate))
+
+    def copy_system_colormaps(self):
+        """Verify system colormaps are copied to user's folder"""
+        colormaps_folder = os.path.join(pathfinder.app_path(), 'colormaps')
+        colormaps = os.listdir(colormaps_folder)
+        self.remove_system_files(colormaps, pathfinder.colormaps_path())
+        self.model.copy_system_colormaps()
+        for cmap in colormaps:
+            installed_cmap = os.path.join(pathfinder.colormaps_path(), cmap)
+            self.assertTrue(os.path.exists(installed_cmap))
 
     def remove_system_files(self, file_list, dest):
         """Attempts to remove every file in file_list found in dest folder.

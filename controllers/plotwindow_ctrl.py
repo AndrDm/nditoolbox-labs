@@ -6,6 +6,7 @@ __author__ = 'Chris R. Coughlin'
 
 from views import dialogs
 from views import fetchplugin_dialog
+from views import colormapcreator
 from models import mainmodel
 from models import dataio
 from models import ndescanhandler
@@ -420,7 +421,11 @@ class BasicImgPlotWindowController(BasicPlotWindowController):
 
     def init_plot_defaults(self):
         super(BasicImgPlotWindowController, self).init_plot_defaults()
-        self.colormap = cm.get_cmap('Spectral')
+        cfg = mainmodel.get_config()
+        if cfg.has_option("ImgPlot", "colormap"):
+            self.colormap = self.model.get_cmap(cfg.get("ImgPlot", "colormap"))
+        else:
+            self.colormap = self.model.get_cmap('Spectral')
 
     def on_set_cbarlbl(self, evt):
         """Sets the label for the imgplot's colorbar"""
@@ -475,7 +480,7 @@ class BasicImgPlotWindowController(BasicPlotWindowController):
             if not m.endswith("_r"):
                 ax = plt.subplot(num_maps, 1, i + 1)
                 plt.axis('off')
-                plt.imshow(colormap_strip, aspect='equal', cmap=plt.get_cmap(m), origin='lower')
+                plt.imshow(colormap_strip, aspect='equal', cmap=self.model.get_cmap(m), origin='lower')
                 pos = list(ax.get_position().bounds)
                 figure.text(pos[0] - 0.01, pos[1], m, fontsize=10, horizontalalignment='right')
         plt.show()
@@ -489,15 +494,22 @@ class BasicImgPlotWindowController(BasicPlotWindowController):
                                                      "Please select a colormap for this plot.",
                                                      colormaps)
         if cmap_dlg.accepted is True:
+            cfg = mainmodel.get_config()
             colormap = cmap_dlg.selection
             if colormap == '':
-                self.colormap = cm.spectral
+                self.colormap = self.model.get_cmap('Spectral')
+                cfg.set("ImgPlot", {"colormap":"spectral"})
             else:
-                self.colormap = cm.get_cmap(colormap)
+                self.colormap = self.model.get_cmap(colormap)
+                cfg.set("ImgPlot", {"colormap":colormap})
             if self.view.img is not None:
                 self.view.img.set_cmap(self.colormap)
                 self.refresh_plot()
 
+    def on_create_cmap(self, evt):
+        """Handles request to create a new matplotlib colormap"""
+        cmapcreator_ui = colormapcreator.ColormapCreatorUI(parent=self.view)
+        cmapcreator_ui.Show()
 
 class ImgPlotWindowController(BasicImgPlotWindowController):
     """Controller for ImgPlotWindow class"""
@@ -765,6 +777,18 @@ class MegaPlotWindowController(BasicImgPlotWindowController, PlotWindowControlle
         """Handles toggle of enable/disable navigation toolbar checkbox"""
         self.view.toggle_toolbar()
 
+    def set_navtools_config(self, navtools_enabled):
+        """Sets the enable navtools option in the config"""
+        cfg = mainmodel.get_config()
+        cfg.set("MegaPlot", {"enable navtools":navtools_enabled})
+
+    def get_navtools_config(self):
+        """Returns the enable navtools setting from config."""
+        cfg = mainmodel.get_config()
+        if cfg.has_option("MegaPlot", "enable navtools"):
+            return cfg.get_boolean("MegaPlot", "enable navtools")
+        return True
+
     def on_sliceidx_change(self, evt):
         """Responds to changes in the z position spin control"""
         self.update_plot(self.view.xpos_sc.GetValue(), self.view.ypos_sc.GetValue(),
@@ -802,11 +826,14 @@ class MegaPlotWindowController(BasicImgPlotWindowController, PlotWindowControlle
                                                      "Please select a colormap for this plot.",
                                                      colormaps)
         if cmap_dlg.accepted is True:
+            cfg = mainmodel.get_config()
             colormap = cmap_dlg.selection
             if colormap == '':
-                self.colormap = cm.spectral
+                self.colormap = self.model.get_cmap('Spectral')
+                cfg.set("ImgPlot", {"colormap":"spectral"})
             else:
-                self.colormap = cm.get_cmap(colormap)
+                self.colormap = self.model.get_cmap(colormap)
+                cfg.set("ImgPlot", {"colormap":colormap})
             if self.view.cscan_img is not None:
                 self.view.cscan_img.set_cmap(self.colormap)
                 self.refresh_plot()
