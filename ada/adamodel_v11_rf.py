@@ -5,6 +5,9 @@ import numpy as np
 import wx
 
 import array
+import tempfile
+import os.path
+import os
 import Image
 import cv2
 from cv2 import cv
@@ -458,7 +461,8 @@ class CompositeADABasic1(ADAModel):
         #data1 = np.logical_or(data1a,data1b)
 
         # 2) Pass data to temporary file
-        filename = "imgtemp.png"
+        #filename = "imgtemp.png"
+        filename = tempfile.mkstemp(prefix="imgtemp", suffix=".png")
         data2 = data1.astype('uint8')
         image1 = Image.fromarray(data2)
         image1.save(filename)
@@ -529,6 +533,11 @@ class CompositeADABasic1(ADAModel):
             #self.grid.SetCellValue(i1,5, "%6.2f" % self.feat_bw[i1])
             # Increment index
         self.nb = i1
+        if os.path.exists(filename):
+            try:
+                os.remove(filename)
+            except WindowsError: # file in use
+                pass
 
     def plot0(self, axes_hdl, fig_hdl):
         """Generates global C-scan plot view."""
