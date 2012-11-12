@@ -13,7 +13,6 @@ from models import ndescanhandler
 import models.plotwindow_model as model
 import matplotlib
 import matplotlib.axes
-from matplotlib import cm
 import wx
 import wx.lib.dialogs
 from functools import wraps
@@ -620,6 +619,8 @@ class MegaPlotWindowController(BasicImgPlotWindowController, PlotWindowControlle
     def __init__(self, view, data_file):
         self.view = view
         self.slice_idx = 0
+        self.xpos = 0
+        self.ypos = 0
         self.axes_grid = True
         self.model = model.MegaPlotWindowModel(self, data_file)
         self.colorbar = None
@@ -628,6 +629,15 @@ class MegaPlotWindowController(BasicImgPlotWindowController, PlotWindowControlle
         self.get_gates()
         self.init_plot_defaults()
         module_logger.info("Successfully initialized MegaPlotWindowController.")
+
+    def init_plot_defaults(self):
+        """Initializes the defaults for the Megaplot presentation."""
+        super(MegaPlotWindowController, self).init_plot_defaults()
+        cfg = mainmodel.get_config()
+        if cfg.has_option("MegaPlot", "conventional bscans"):
+            self.conventional_bscans = cfg.get_boolean("MegaPlot", "conventional bscans")
+        else:
+            self.conventional_bscans = False
 
     def plot(self, data):
         """Plots the dataset"""
@@ -658,19 +668,34 @@ class MegaPlotWindowController(BasicImgPlotWindowController, PlotWindowControlle
         self.view.ascan_axes.autoscale_view(tight=True)
         self.view.ascan_axes.set_title("A Scan x={0} y={1}".format(xpos, ypos))
 
-    def plot_hbscan(self, hbscan_data, ypos, slice_idx):
-        """Plots the provided horizontal B-scan data"""
+    def plot_hbscan(self, hbscan_data, ypos, slice_idx=None):
+        """Plots the provided horizontal B-scan data.  If plotting a conventional Bscan, the slice_idx parameter
+        can be omitted."""
         self.view.hbscan_axes.cla()
-        self.view.hbscan_plt = self.view.hbscan_axes.plot(hbscan_data)
+        if hbscan_data.ndim == 1:
+            self.view.hbscan_plt = self.view.hbscan_axes.plot(hbscan_data)
+            self.view.hbscan_axes.set_title("Horizontal B Scan y={0} z={1}".format(ypos, slice_idx))
+        else:
+            self.view.hbscan_plt = self.view.hbscan_axes.imshow(hbscan_data, aspect='auto',
+                                                                origin='lower', cmap=self.colormap,
+                                                                interpolation='nearest')
+            self.view.hbscan_axes.set_title("Horizontal B Scan y={0}".format(ypos))
         self.view.hbscan_axes.autoscale_view(tight=True)
-        self.view.hbscan_axes.set_title("Horizontal B Scan y={0} z={1}".format(ypos, slice_idx))
 
-    def plot_vbscan(self, vbscan_data, xpos, slice_idx):
-        """Plots the provided vertical B-scan data"""
+
+    def plot_vbscan(self, vbscan_data, xpos, slice_idx=None):
+        """Plots the provided vertical B-scan data.  If plotting a conventional Bscan, the slice_idx parameter
+        can be omitted."""
         self.view.vbscan_axes.cla()
-        self.view.vbscan_plt = self.view.vbscan_axes.plot(vbscan_data)
+        if vbscan_data.ndim == 1:
+            self.view.vbscan_plt = self.view.vbscan_axes.plot(vbscan_data)
+            self.view.vbscan_axes.set_title("Vertical B Scan x={0} z={1}".format(xpos, slice_idx))
+        else:
+            self.view.vbscan_plt = self.view.vbscan_axes.imshow(vbscan_data, aspect='auto',
+                                                                origin='lower', cmap=self.colormap,
+                                                                interpolation='nearest')
+            self.view.vbscan_axes.set_title("Vertical B Scan x={0}".format(xpos))
         self.view.vbscan_axes.autoscale_view(tight=True)
-        self.view.vbscan_axes.set_title("Vertical B Scan x={0} z={1}".format(xpos, slice_idx))
 
     def plot_cscan(self, cscan_data, slice_idx):
         """Plots the supplied C-scan data"""
@@ -799,16 +824,28 @@ class MegaPlotWindowController(BasicImgPlotWindowController, PlotWindowControlle
         self.update_plot(self.view.xpos_sc.GetValue(), self.view.ypos_sc.GetValue())
 
     @replace_plot
-    def update_plot(self, xpos, ypos, slice_idx=None):
-        """Updates the A and B scans based on the provided
-        (x,y) position in the data.  If slice_idx is provided
-        the C scan plot is updated to that position, default
-        is to leave unchanged if slice_idx is None."""
+    def update_plot(self, xpos=None, ypos=None, slice_idx=None):
+        """Updates the A and B scans based on the provided (x,y) position in the data.  If xpos and/or ypos
+        are None (default), A and B scans are updated on the last (x,y) position selected by the user.
+        If slice_idx is provided the C scan plot is updated to that position, default is to leave unchanged if
+        slice_idx is None."""
+        if xpos is None:
+            xpos = self.xpos
+        else:
+            self.xpos = xpos
+        if ypos is None:
+            ypos = self.ypos
+        else:
+            self.ypos = ypos
         self.view.xpos_sc.SetValue(xpos)
         self.view.ypos_sc.SetValue(ypos)
         self.plot_ascan(self.scnr.ascan_data(xpos, ypos), xpos, ypos)
-        self.plot_hbscan(self.view.cscan_img.get_array()[ypos, :], slice_idx=self.slice_idx, ypos=ypos)
-        self.plot_vbscan(self.view.cscan_img.get_array()[:, xpos], slice_idx=self.slice_idx, xpos=xpos)
+        if self.conventional_bscans is False:
+            self.plot_hbscan(self.view.cscan_img.get_array()[ypos, :], slice_idx=self.slice_idx, ypos=ypos)
+            self.plot_vbscan(self.view.cscan_img.get_array()[:, xpos], slice_idx=self.slice_idx, xpos=xpos)
+        else:
+            self.plot_hbscan(self.scnr.hbscan_data(ypos), ypos)
+            self.plot_vbscan(self.scnr.vbscan_data(xpos), xpos)
         if slice_idx is not None:
             self.slice_idx = slice_idx
             if self.view.slice_cb.IsChecked():
@@ -845,6 +882,14 @@ class MegaPlotWindowController(BasicImgPlotWindowController, PlotWindowControlle
             ax.grid()
         self.axes_grid = not self.axes_grid
         self.refresh_plot()
+
+    @replace_plot
+    def on_change_bscans(self, evt):
+        """Toggles using conventional Bscan imgplots or 1D cross-sections through the current Cscan"""
+        self.conventional_bscans = self.view.plot_conventional_bscans
+        cfg = mainmodel.get_config()
+        cfg.set("MegaPlot", {"conventional bscans":self.conventional_bscans})
+        self.update_plot()
 
     @replace_plot
     def on_rectify(self, evt):
