@@ -8,6 +8,7 @@ __author__ = 'John C. Aldrin and Chris R. Coughlin'
 from controllers import adatk_ctrl
 from views import wxspreadsheet
 from views import wxadamodeltree
+from views import wxdirtreectrl
 from views import ui_defaults
 import matplotlib
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg,\
@@ -18,6 +19,13 @@ import matplotlib.image as mpimg
 
 import wx
 import wx.aui
+import wx.grid
+
+widget_margin = 3 # Default margin around widgets
+ctrl_pct = 1.0 # Default to 100% resizing factor for controls
+lbl_pct = 0.25 # Default to 25% resizing factor for labels
+sizer_flags = wx.ALL | wx.EXPAND # Default resizing flags for controls
+lblsizer_flags = wx.ALIGN_CENTRE_VERTICAL | wx.ALL # Default resizing flags for labels
 
 class ADAWindow(wx.Frame):
     """Primary interface for ADA Toolkit"""
@@ -166,70 +174,166 @@ class ADAWindow(wx.Frame):
         # self.ada_config_page = 0 # ADA Configuration page
         self.ctrl_panel0 = wx.Panel(self.spreadsheet_nb, wx.ID_ANY,
             wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL)
-        self.output_ctrl_panel1_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.output_ctrl_panel0_sizer = wx.BoxSizer(wx.HORIZONTAL)
         #
         self.init_ctrls(self.ctrl_panel0)
         #
-        self.output_ctrl_panel1_sizer.Add(self.ctrl_panel, 1, wx.TOP | wx.LEFT | wx.GROW)
-        self.output_ctrl_panel1_sizer.Add(self.modelprops_panel, 2, wx.TOP | wx.LEFT | wx.GROW)
+        self.output_ctrl_panel0_sizer.Add(self.ctrl_panel, 1, wx.TOP | wx.LEFT | wx.GROW)
+        self.output_ctrl_panel0_sizer.Add(self.modelprops_panel, 2, wx.TOP | wx.LEFT | wx.GROW)
 
-        self.ctrl_panel0.SetSizer(self.output_ctrl_panel1_sizer)
+        self.ctrl_panel0.SetSizer(self.output_ctrl_panel0_sizer)
         self.spreadsheet_nb.AddPage(self.ctrl_panel0, "ADA Configuration", False)
         #
         #################################################################################
-        # self.analysis_dir_page = 1 # Analysis Directory  page
+        # self.analysis_dir_page = 1 # Run Options page
         self.ctrl_panel1 = wx.Panel(self.spreadsheet_nb, wx.ID_ANY,
             wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL)
         self.output_ctrl_panel1_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        panel1_sizer11 = wx.BoxSizer(wx.VERTICAL)
-        panel1_sizer12 = wx.BoxSizer(wx.VERTICAL)
         #
-        panel1_text1 = wx.StaticText(self.ctrl_panel1, wx.ID_ANY, u'Directory Tree')
+        self.left_panel = wx.Panel(self.ctrl_panel1)
+        self.left_panel_sizer = wx.BoxSizer(wx.VERTICAL)
+        #
+        panel1_text1 = wx.StaticText(self.left_panel, wx.ID_ANY, u'Run Type')
         panel1_text1.SetFont(wx.Font(wx.NORMAL_FONT.GetPointSize(),
             70, 90, 92, False, wx.EmptyString))
-        panel1_text2 = wx.StaticText(self.ctrl_panel1, wx.ID_ANY, u'Auto-Detect Directory')
-        panel1_text2.SetFont(wx.Font(wx.NORMAL_FONT.GetPointSize(),
-            70, 90, 92, False, wx.EmptyString))
-        panel1_text3 = wx.StaticText(self.ctrl_panel1, wx.ID_ANY, u'Batch Directory List')
-        panel1_text3.SetFont(wx.Font(wx.NORMAL_FONT.GetPointSize(),
-            70, 90, 92, False, wx.EmptyString))
-        panel1_text4 = wx.StaticText(self.ctrl_panel1, wx.ID_ANY, u'Parametric Study - Value Grid')
+        self.left_panel_sizer.Add(panel1_text1, 0,  ui_defaults.lbl_pct,
+            ui_defaults.sizer_flags, ui_defaults.widget_margin)
+        # - add radiobox (to add sizers)
+        #radio_panel = wx.Panel(self.left_panel)
+        #radio_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.radioList = [ 'Single File Run (Select File)', 'Validation Study (Set File List)', 'Parametric Study (Set File List and Parameter Levels)', 'Calibration Run',  'Production (Auto-detect) Mode' ]
+        self.radioBox1 = wx.RadioBox(self.left_panel,-1, choices = self.radioList, majorDimension=1)
+        self.left_panel_sizer.Add(self.radioBox1, lbl_pct, sizer_flags, 0)
+        # - add button bar
+        btn_panel = wx.Panel(self.left_panel)
+        btn_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        # - button add dir
+        self.adddir_btn = wx.Button(btn_panel, wx.ID_ANY, "Add Folder To List...", wx.DefaultPosition, wx.DefaultSize)
+        self.adddir_btn.SetToolTipString("Select a new folder to add to the list")
+        self.Bind(wx.EVT_BUTTON, self.controller.on_add_folder, id=self.adddir_btn.GetId())
+        btn_panel_sizer.Add(self.adddir_btn, lbl_pct, sizer_flags, widget_margin)
+        # - button remove dir
+        self.remdir_btn = wx.Button(btn_panel, wx.ID_ANY, "Remove Folder From List...", wx.DefaultPosition, wx.DefaultSize)
+        self.remdir_btn.SetToolTipString("Removes selected folder and its subfolders from the list")
+        self.Bind(wx.EVT_BUTTON, self.controller.on_remove_folder, id=self.remdir_btn.GetId())
+        btn_panel_sizer.Add(self.remdir_btn, lbl_pct, sizer_flags, widget_margin)
+        # - add button panel
+        btn_panel.SetSizerAndFit(btn_panel_sizer)
+        self.left_panel_sizer.Add(btn_panel, lbl_pct, sizer_flags, 0)
+        # - add directory tree
+        self.dirtree = wxdirtreectrl.DirTreeCtrl(self.left_panel, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize)
+        self.dirtree.SetToolTipString("Lists the folders that will be searched for files")
+        self.left_panel_sizer.Add(self.dirtree, ctrl_pct, sizer_flags, widget_margin)
+        #
+        self.listfolders_btn = wx.Button(self.left_panel, wx.ID_ANY, "Generate Folder List", wx.DefaultPosition,
+            wx.DefaultSize)
+        self.listfolders_btn.SetToolTipString("Lists the folder and its subfolders that will be searched")
+        self.Bind(wx.EVT_BUTTON, self.controller.on_folder_list, id=self.listfolders_btn.GetId())
+        self.left_panel_sizer.Add(self.listfolders_btn, lbl_pct, lblsizer_flags, widget_margin)
+        self.listfolders_lb = wx.ListBox(self.left_panel, wx.ID_ANY, style=wx.LB_EXTENDED)
+        self.listfolders_lb.SetToolTipString("Select one or more folders to search, or select none to search all folders listed")
+        self.left_panel_sizer.Add(self.listfolders_lb, ctrl_pct, sizer_flags|wx.ALIGN_LEFT, widget_margin)
+        #
+        self.left_panel.SetSizerAndFit(self.left_panel_sizer)
+
+        #####
+        #panel1_sizer12 = wx.BoxSizer(wx.VERTICAL)
+        #
+        #panel1_text1 = wx.StaticText(self.ctrl_panel1, wx.ID_ANY, u'Directory Tree')
+        #panel1_text1.SetFont(wx.Font(wx.NORMAL_FONT.GetPointSize(),
+        #    70, 90, 92, False, wx.EmptyString))
+        #
+        #panel1_sizer12.Add(panel1_text1, 0,  ui_defaults.lbl_pct,
+        #    ui_defaults.sizer_flags, ui_defaults.widget_margin)
+        #panel1_sizer12.Add(self.dir1, 1, wx.TOP | wx.LEFT | wx.GROW)
+        #
+
+        #####
+        #panel1_sizer11 = wx.BoxSizer(wx.VERTICAL)
+        #
+        #panel1_text2 = wx.StaticText(self.ctrl_panel1, wx.ID_ANY, u'Auto-Detect Directory')
+        #panel1_text2.SetFont(wx.Font(wx.NORMAL_FONT.GetPointSize(),
+        #    70, 90, 92, False, wx.EmptyString))
+        #panel1_text3 = wx.StaticText(self.ctrl_panel1, wx.ID_ANY, u'Batch Directory List')
+        #panel1_text3.SetFont(wx.Font(wx.NORMAL_FONT.GetPointSize(),
+        #    70, 90, 92, False, wx.EmptyString))
+        #
+        #self.txt_dir1 = wx.TextCtrl(self.ctrl_panel1, wx.ID_ANY,
+        #    u'', wx.DefaultPosition, wx.DefaultSize,
+        #    style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_DONTWRAP)
+        #self.txt_dirN = wx.TextCtrl(self.ctrl_panel1, wx.ID_ANY,
+        #    u'', wx.DefaultPosition, wx.DefaultSize,
+        #    style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_DONTWRAP)
+        #
+
+        self.right_panel = wx.Panel(self.ctrl_panel1)
+        self.right_panel_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        btn_panel = wx.Panel(self.right_panel)
+        btn_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        search_lbl = wx.StaticText(btn_panel, wx.ID_ANY, "Search Selected Folder(s):")
+        btn_panel_sizer.Add(search_lbl, lbl_pct, lblsizer_flags, widget_margin)
+        file_choices = ['*.hdf5', '*.csv', '*.rf', '*.csc', '*.sdt']
+        self.file_cb = wx.ComboBox(btn_panel, wx.ID_ANY, choices=file_choices, style=wx.CB_READONLY)
+        self.file_cb.SetToolTipString("Specifies the type of file for which to search")
+        self.file_cb.SetSelection(0)
+        btn_panel_sizer.Add(self.file_cb, lbl_pct, lblsizer_flags, widget_margin)
+        self.searchfiles_btn = wx.Button(btn_panel, wx.ID_ANY, "Search", wx.DefaultPosition, wx.DefaultSize)
+        self.searchfiles_btn.SetToolTipString("Searches the selected folder(s) and subfolders for the specified file type")
+        self.Bind(wx.EVT_BUTTON, self.controller.on_search_files, id=self.searchfiles_btn.GetId())
+        btn_panel_sizer.Add(self.searchfiles_btn, lbl_pct, lblsizer_flags, widget_margin)
+        btn_panel.SetSizerAndFit(btn_panel_sizer)
+        self.right_panel_sizer.Add(btn_panel, lbl_pct, sizer_flags, 0)
+
+        self.listfiles_lb = wx.ListBox(self.right_panel, wx.ID_ANY, style=wx.TE_MULTILINE)
+        self.right_panel_sizer.Add(self.listfiles_lb, ctrl_pct, sizer_flags, widget_margin)
+
+        # - add grid bar
+        paragrid_panel = wx.Panel(self.right_panel)
+        paragrid_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.input_grid = self.creategrid(paragrid_panel)
+        self.input_tb = self.creategrid_toolbar(paragrid_panel)
+        #self.init_dir_tree(self.ctrl_panel1) # self.dir_tree
+
+        panel1_text4 = wx.StaticText(self.right_panel, wx.ID_ANY, u'Parametric Study - Value Grid')
         panel1_text4.SetFont(wx.Font(wx.NORMAL_FONT.GetPointSize(),
             70, 90, 92, False, wx.EmptyString))
-        #
-        self.txt_dir1 = wx.TextCtrl(self.ctrl_panel1, wx.ID_ANY,
-            u'', wx.DefaultPosition, wx.DefaultSize,
-            style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_DONTWRAP)
-        self.txt_dirN = wx.TextCtrl(self.ctrl_panel1, wx.ID_ANY,
-            u'', wx.DefaultPosition, wx.DefaultSize,
-            style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_DONTWRAP)
-        #
-        self.input_grid = self.creategrid(self.ctrl_panel1)
-        self.input_tb = self.creategrid_toolbar(self.ctrl_panel1)
-        self.init_dir_tree(self.ctrl_panel1) # self.dir_tree
+        self.right_panel_sizer.Add(panel1_text4, 0,  ui_defaults.lbl_pct,
+            ui_defaults.sizer_flags, ui_defaults.widget_margin)
+
+        self.input_tb.Realize()
+        paragrid_panel_sizer.Add(self.input_tb, 0, wx.EXPAND, border=ui_defaults.widget_margin)
+        paragrid_panel_sizer.Add(self.input_grid, 1, wx.TOP | wx.LEFT | wx.GROW)
+        #self.output_ctrl_panel1_sizer.Add(panel1_sizer11, 1, wx.ALL | wx.EXPAND)
+        #self.output_ctrl_panel1_sizer.Add(self.input_tb, 0, wx.ALL | wx.EXPAND)
+        #paragrid_panel_sizer.Add(self.searchfiles_btn, lbl_pct, lblsizer_flags, widget_margin)
+        paragrid_panel.SetSizerAndFit(paragrid_panel_sizer)
+        self.right_panel_sizer.Add(paragrid_panel, ctrl_pct, sizer_flags, widget_margin)
+        self.right_panel.SetSizerAndFit(self.right_panel_sizer)
+
         #####
-        panel1_sizer11.Add(panel1_text2, 0,  ui_defaults.lbl_pct,
-            ui_defaults.sizer_flags, ui_defaults.widget_margin)
-        panel1_sizer11.Add(self.txt_dir1, 1, wx.TOP | wx.LEFT | wx.GROW)
-        panel1_sizer11.Add(panel1_text3, 0,  ui_defaults.lbl_pct,
-            ui_defaults.sizer_flags, ui_defaults.widget_margin)
-        panel1_sizer11.Add(self.txt_dirN, 1, wx.TOP | wx.LEFT | wx.GROW)
-        panel1_sizer11.Add(panel1_text4, 0,  ui_defaults.lbl_pct,
-            ui_defaults.sizer_flags, ui_defaults.widget_margin)
-        panel1_sizer11.Add(self.input_grid, 1, wx.TOP | wx.LEFT | wx.GROW)
+        #panel1_sizer11.Add(panel1_text2, 0,  ui_defaults.lbl_pct,
+        #    ui_defaults.sizer_flags, ui_defaults.widget_margin)
+        #panel1_sizer11.Add(self.txt_dir1, 1, wx.TOP | wx.LEFT | wx.GROW)
+        #panel1_sizer11.Add(panel1_text3, 0,  ui_defaults.lbl_pct,
+        #    ui_defaults.sizer_flags, ui_defaults.widget_margin)
+        #panel1_sizer11.Add(self.txt_dirN, 1, wx.TOP | wx.LEFT | wx.GROW)
+        #panel1_sizer11.Add(panel1_text4, 0,  ui_defaults.lbl_pct,
+        #    ui_defaults.sizer_flags, ui_defaults.widget_margin)
+
+        # Build  parts
+        #self.output_ctrl_panel1_sizer.Add(panel1_sizer12, 1, wx.ALL | wx.EXPAND)
+        #self.output_ctrl_panel1_sizer.Add(self.input_tb, 0, wx.ALL | wx.EXPAND)
+        #self.output_ctrl_panel1_sizer.Add(panel1_sizer11, 1, wx.ALL | wx.EXPAND)
         #
-        panel1_sizer12.Add(panel1_text1, 0,  ui_defaults.lbl_pct,
-            ui_defaults.sizer_flags, ui_defaults.widget_margin)
-        panel1_sizer12.Add(self.dir1, 1, wx.TOP | wx.LEFT | wx.GROW)
-        #
-        self.output_ctrl_panel1_sizer.Add(panel1_sizer12, 1, wx.ALL | wx.EXPAND)
-        self.output_ctrl_panel1_sizer.Add(self.input_tb, 0, wx.ALL | wx.EXPAND)
-        self.output_ctrl_panel1_sizer.Add(panel1_sizer11, 1, wx.ALL | wx.EXPAND)
+        self.output_ctrl_panel1_sizer.Add(self.left_panel, 1, wx.ALL | wx.EXPAND)
+        self.output_ctrl_panel1_sizer.Add(self.right_panel, 1, wx.ALL | wx.EXPAND)
         #
         self.ctrl_panel1.SetSizer(self.output_ctrl_panel1_sizer)
         self.ctrl_panel1.Layout()
         #
-        self.spreadsheet_nb.AddPage(self.ctrl_panel1, "File/Directory Options", False)
+        self.spreadsheet_nb.AddPage(self.ctrl_panel1, "Run Options", False)
         #
         #################################################################################
         # self.res_summary_page = 2 # Results Summary with Indication (Hole Layout) View page

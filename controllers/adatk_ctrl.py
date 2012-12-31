@@ -7,9 +7,11 @@ __author__ = 'Chris R. Coughlin and John C. Aldrin'
 
 from models.adatk_model import ADAWindowModel
 from models import workerthread
+from models import file_finder
 from controllers import pathfinder
 from views import dialogs
 from views import fetchadamodel_dialog
+from views.wxdirtreectrl import DirTreeCtrl
 import wx
 import numpy as np
 import Queue
@@ -220,7 +222,6 @@ class ADAWindowController(object):
                                      style=wx.FD_OPEN)
             if file_dlg.ShowModal() == wx.ID_OK:
                 try:
-                    grid = self.get_active_grid()
                     data = self.model.load_data(file_dlg.GetPath())
                     if data is not None:
                         self.populate_spreadsheet(grid, data)
@@ -252,10 +253,12 @@ class ADAWindowController(object):
         """Returns the currently-selected Spreadsheet control from the view"""
         grid = None
         active_page = self.view.spreadsheet_nb.GetSelection()
-        if active_page == 0:
+        if active_page == 1:
             grid = self.view.input_grid
-        elif active_page == 1:
+        elif active_page == 2:
             grid = self.view.output_grid
+        elif active_page == 3:
+            grid = self.view.output_grid2
         return grid
 
     def on_property_change(self, evt):
@@ -623,6 +626,39 @@ class ADAWindowController(object):
                 style=wx.OK | wx.ICON_ERROR)
             err_dlg.ShowModal()
             err_dlg.Destroy()
+
+    def on_add_folder(self, evt):
+        """Handles request to add a folder and its subfolders to the tree"""
+        dir_dlg = wx.DirDialog(self.view, "Please select a folder.")
+        if dir_dlg.ShowModal() == wx.ID_OK:
+            wx.BeginBusyCursor()
+            self.view.dirtree.add_folder(dir_dlg.GetPath())
+            wx.EndBusyCursor()
+
+    def on_remove_folder(self, evt):
+        """Handles request to remove selected folder"""
+        self.view.dirtree.remove_folder()
+
+    def on_folder_list(self, evt):
+        """Handles request to list folders"""
+        folders = self.view.dirtree.selected_folders()
+        if len(folders) == 0:
+            folders = self.view.dirtree.get_folders()
+        self.view.listfolders_lb.Set(sorted(folders))
+
+    def on_search_files(self, evt):
+        """Handles request to search selected folder(s) for files matching specified file extension."""
+        self.view.listfiles_lb.Clear()
+        wx.BeginBusyCursor()
+
+        search_folders = [self.view.listfolders_lb.GetString(fldr) for fldr in self.view.listfolders_lb.GetSelections()]
+        if len(search_folders) == 0:
+            search_folders = self.view.dirtree.get_folders()
+        for folder in sorted(search_folders):
+            ext = self.view.file_cb.GetStringSelection()
+            f = file_finder.exact_match(ext.lower(), folder)
+            self.view.listfiles_lb.AppendItems(sorted(f))
+        wx.EndBusyCursor()
 
     def run_model(self, model_instance):
         """Runs the specified ADA Model instance in a separate thread."""
