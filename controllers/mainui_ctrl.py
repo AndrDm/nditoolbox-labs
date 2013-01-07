@@ -111,6 +111,12 @@ class MainUIController(object):
                 coordinates[1] = cfg_coordinates[1]
         return coordinates
 
+    def get_window_size(self):
+        """Returns the window size of the main application window from the configuration file"""
+        window_size = [300, 600]
+        cfg_win_size = self.model.get_window_size()
+        return cfg_win_size
+
     def get_preview_state(self):
         """Returns the current enable/disable thumbnail
         previews setting from the application's config file"""
@@ -129,6 +135,7 @@ class MainUIController(object):
     def on_quit(self, evt):
         """Handles the Quit event"""
         self.model.set_coords(list(self.view.GetPosition()))
+        self.model.set_window_size(list(self.view.GetClientSizeTuple()))
         self.view._mgr.UnInit()
         self.view.Destroy()
 
@@ -467,6 +474,36 @@ class MainUIController(object):
                 wx.EndBusyCursor()
             exportfmt_dlg.Destroy()
 
+    def on_slice_data(self, evt):
+        """Handles request to export a slice of data"""
+        slice_dlg = dlg.ExportSliceDialog(parent=self.view, datafile=self.view.data_panel.data)
+        if slice_dlg.ShowModal() == wx.ID_OK:
+            try:
+                wx.BeginBusyCursor()
+                sliced_data = dataio.get_data(self.view.data_panel.data, slice_dlg.get_slice())
+                sliced_data_fname = "_".join(["sliced",
+                                              os.path.basename(self.view.data_panel.data)])
+                fname_dlg = wx.TextEntryDialog(parent=self.view, message="Please specify a filename for the sliced data.",
+                    caption="Save Sliced Data", defaultValue=sliced_data_fname)
+                if fname_dlg.ShowModal() == wx.ID_OK:
+                    dest_fname = os.path.join(pathfinder.data_path(), fname_dlg.GetValue())
+                    dataio.save_data(dest_fname, sliced_data)
+                    self.view.data_panel.populate()
+            except TypeError: # bad dimensions
+                err_dlg = wx.MessageDialog(self.view, message="Specified dimensions out of range for this data.",
+                    caption="Unable To Slice Data", style=wx.ICON_ERROR)
+                err_dlg.ShowModal()
+                err_dlg.Destroy()
+            except ValueError: # zero-length slices, etc.
+                err_dlg = wx.MessageDialog(self.view, message="Zero-length slices are not permitted.",
+                    caption="Unable To Slice Data", style=wx.ICON_ERROR)
+                err_dlg.ShowModal()
+                err_dlg.Destroy()
+            finally:
+                wx.EndBusyCursor()
+        slice_dlg.Destroy()
+
+
     def import_dicom(self, file_name):
         """Converts and imports the specified DICOM/DICONDE data file"""
         self.import_data(dataio.import_dicom, args=(file_name,))
@@ -545,6 +582,27 @@ class MainUIController(object):
         sdt_file = self.choose_import_file(wildcards)
         if sdt_file is not None:
             self.import_sdt(sdt_file)
+
+    def on_data_info(self, evt):
+        """Handles request to display info about selected data"""
+        self.show_data_info()
+
+    def show_data_info(self):
+        """Displays info about selected data"""
+        if self.view.data_panel.data is not None:
+            wx.BeginBusyCursor()
+            data_info = self.model.get_data_info(self.view.data_panel.data)
+            if data_info is not None:
+                data_msg = "File Size: {0} bytes\n\nData Dimensions: {1}\nData Shape: {2}\nNumber of Points: {3} ({4} data type)".format(
+                    data_info['filesize'], data_info['ndim'], data_info['shape'], data_info['numpoints'], data_info['dtype']
+                )
+            else:
+                data_msg = "Unable to read {0}".format(self.view.data_panel.data)
+            info_dlg = wx.MessageDialog(parent=self.view, message=data_msg,
+                                        caption=os.path.basename(self.view.data_panel.data), style=wx.OK)
+            info_dlg.ShowModal()
+            info_dlg.Destroy()
+            wx.EndBusyCursor()
 
     def on_remove_data(self, evt):
         """Handles request to remove data from data folder"""

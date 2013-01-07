@@ -6,6 +6,7 @@ Chris R. Coughlin (TRI/Austin, Inc.)
 __author__ = 'Chris R. Coughlin'
 
 import models.mainmodel as model
+import models.dataio as dataio
 import models.abstractplugin as abstractplugin
 import models.config as config
 import models.ultrasonicgate as ultrasonicgate
@@ -243,7 +244,7 @@ class TestMainModel(unittest.TestCase):
         self.assertTrue(isinstance(returned_data, dict))
         self.assertDictEqual(returned_data['config'], plugin_cfg)
         self.assertDictEqual(returned_data['kwargs'], kwargs)
-        self.assertListEqual(returned_data['data'].tolist(), plugin_data.tolist())
+        self.assertTrue(np.array_equal(returned_data['data'], plugin_data))
 
     def test_plugin_wrapper_exceptions(self):
         """Verify the plugin_wrapper function properly returns Exception info"""
@@ -267,7 +268,7 @@ class TestMainModel(unittest.TestCase):
         self.assertTrue(isinstance(plugin_process, multiprocessing.Process))
         returned_data = plugin_queue.get()
         expected_data = plugin_data / np.max(plugin_data)
-        self.assertListEqual(expected_data.tolist(), returned_data.tolist())
+        self.assertTrue(np.array_equal(expected_data, returned_data))
 
     def test_run_plugin_exceptions(self):
         """Verify run_plugin returns exception messages in Queue"""
@@ -345,7 +346,7 @@ class TestMainModel(unittest.TestCase):
         str_coords = cfg.get_app_option_list("Coordinates")
         expected_coords = (0, 0)
         if str_coords is not None:
-            expected_coords = [int(coord) for coord in cfg.get_app_option_list("Coordinates")]
+            expected_coords = [int(coord) for coord in str_coords]
         self.assertListEqual(expected_coords, self.model.get_coords())
 
     def test_set_coords(self):
@@ -354,7 +355,7 @@ class TestMainModel(unittest.TestCase):
         str_coords = cfg.get_app_option_list("Coordinates")
         original_coords = (0, 0)
         if str_coords is not None:
-            original_coords = [int(coord) for coord in cfg.get_app_option_list("Coordinates")]
+            original_coords = [int(coord) for coord in str_coords]
         self.assertListEqual(original_coords, self.model.get_coords())
         new_coords_int = [3, 5]
         self.model.set_coords(new_coords_int)
@@ -363,6 +364,28 @@ class TestMainModel(unittest.TestCase):
         self.model.set_coords(new_coords_str)
         self.assertListEqual([int(coord) for coord in new_coords_str], self.model.get_coords())
         self.model.set_coords(original_coords)
+
+    def test_get_size(self):
+        """Verify returning the size of the main app window set in config"""
+        cfg = config.Configure(pathfinder.config_path())
+        str_win_size = cfg.get_app_option_list("Window Size")
+        expected_win_size = [300, 600]
+        if str_win_size is not None:
+            expected_win_size = [int(dimsize) for dimsize in str_win_size]
+        self.assertListEqual(expected_win_size, self.model.get_window_size())
+
+    def test_set_size(self):
+        """Verify setting the size of the main app window in config"""
+        cfg = config.Configure(pathfinder.config_path())
+        str_win_size = cfg.get_app_option_list("Window Size")
+        original_win_size = [300, 600]
+        if str_win_size is not None:
+            original_win_size = [int(dimsize) for dimsize in str_win_size]
+        self.assertListEqual(original_win_size, self.model.get_window_size())
+        new_win_size = [800, 1024]
+        self.model.set_window_size(new_win_size)
+        self.assertListEqual(new_win_size, self.model.get_window_size())
+        self.model.set_coords(original_win_size)
 
     def test_get_loglevel(self):
         """Verify returning the log level from config"""
@@ -477,9 +500,29 @@ class TestMainModel(unittest.TestCase):
             is_win2k = major == 5 and minor == 0
         self.assertEqual(is_win2k, model.is_win2k())
 
+    def test_get_data_info(self):
+        """Verify get_data_info returns info about a data file"""
+        file_size = int(os.stat(self.sample_data_file).st_size)
+        data = dataio.get_data(self.sample_data_file)
+        data_info = self.model.get_data_info(self.sample_data_file)
+        ndim = data.ndim
+        shape = data.shape
+        numpoints = data.size
+        dtype = str(data.dtype)
+        self.assertEqual(file_size, data_info['filesize'])
+        self.assertEqual(ndim, data_info['ndim'])
+        self.assertEqual(shape, data_info['shape'])
+        self.assertEqual(numpoints, data_info['numpoints'])
+        self.assertEqual(dtype, data_info['dtype'])
+
     def tearDown(self):
-        if os.path.exists(self.sample_data_file + ".hdf5"):
-            os.remove(self.sample_data_file + ".hdf5")
+        try:
+            if os.path.exists(self.sample_data_file + ".hdf5"):
+                os.remove(self.sample_data_file + ".hdf5")
+            if os.path.exists(self.sample_data_file):
+                os.remove(self.sample_data_file)
+        except WindowsError: # file in use
+            pass
         model.set_loglevel(self.original_loglevel)
 
 if __name__ == "__main__":

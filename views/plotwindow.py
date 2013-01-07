@@ -379,7 +379,7 @@ class MegaPlotWindow(PlotWindow):
         self.ctrl_sizer.Add(info_lbl, ui_defaults.lbl_pct, ui_defaults.lblsizer_flags, ui_defaults.widget_margin)
         xpos_lbl = wx.StaticText(self.ctrl_panel, wx.ID_ANY, u"X Position", wx.DefaultPosition, wx.DefaultSize)
         self.ctrl_sizer.Add(xpos_lbl, ui_defaults.lbl_pct, ui_defaults.lblsizer_flags, ui_defaults.widget_margin)
-        self.xpos_sc = wx.SpinCtrl(self.ctrl_panel, wx.ID_ANY, value="", min=0, max=self.controller.data.shape[0] - 1)
+        self.xpos_sc = wx.SpinCtrl(self.ctrl_panel, wx.ID_ANY, value="", min=0, max=self.controller.data.shape[1] - 1)
         self.Bind(wx.EVT_SPINCTRL, self.controller.on_xy_change, self.xpos_sc)
         self.ctrl_sizer.Add(self.xpos_sc, ui_defaults.ctrl_pct, ui_defaults.sizer_flags, ui_defaults.widget_margin)
         ypos_lbl = wx.StaticText(self.ctrl_panel, wx.ID_ANY, u"Y Position", wx.DefaultPosition, wx.DefaultSize)
@@ -506,16 +506,14 @@ class MegaPlotWindow(PlotWindow):
         self.Bind(wx.EVT_MENU, self.controller.on_rectify, id=self.fullrect_mnui.GetId())
         self.rect_mnu.AppendItem(self.fullrect_mnui)
         self.ops_mnu.AppendMenu(wx.ID_ANY, 'Rectify', self.rect_mnu)
-        # Aug-15 [crc] - disabled gates until a suitable approach to handling
-        # 3D data is implemented
-        #self.gate_mnu = wx.Menu() # Gates operations
-        #for gate in self.controller.gates:
-        #    gate_name = self.controller.gates[gate][0]
-        #    gate_desc = "Applies a {0} gate function to the data".format(gate_name)
-        #    gate_mnui = wx.MenuItem(self.gate_mnu, id=gate, text=gate_name, help=gate_desc)
-        #    self.gate_mnu.AppendItem(gate_mnui)
-        #    self.Bind(wx.EVT_MENU, self.controller.on_apply_gate, id=gate_mnui.GetId())
-        #self.ops_mnu.AppendMenu(wx.ID_ANY, 'Gates', self.gate_mnu)
+        self.gate_mnu = wx.Menu() # Gates operations
+        for gate in self.controller.gates:
+            gate_name = self.controller.gates[gate][0]
+            gate_desc = "Applies a {0} gate function to the data".format(gate_name)
+            gate_mnui = wx.MenuItem(self.gate_mnu, id=gate, text=gate_name, help=gate_desc)
+            self.gate_mnu.AppendItem(gate_mnui)
+            self.Bind(wx.EVT_MENU, self.controller.on_apply_gate, id=gate_mnui.GetId())
+        self.ops_mnu.AppendMenu(wx.ID_ANY, 'Gates', self.gate_mnu)
 
     def navtools_enabled(self):
         """Returns True if plot navigation bar is enabled"""
