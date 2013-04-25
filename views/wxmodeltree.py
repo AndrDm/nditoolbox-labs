@@ -16,7 +16,7 @@ class ModelTree(wx.TreeCtrl):
 
     def __init__(self, parent, id=-1, pos=wx.DefaultPosition,
                  size=wx.DefaultSize, style=wx.TR_DEFAULT_STYLE):
-        super(ModelTree, self).__init__(parent, id, pos, size, style)
+        wx.TreeCtrl.__init__(self, parent, id, pos, size, style)
         self.root = self.AddRoot("Available Models")
         self.inputdata_lbl = "Input Data"
         self.parameters_lbl = "Parameters"

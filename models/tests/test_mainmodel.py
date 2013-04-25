@@ -30,7 +30,8 @@ def deleted_user_path():
     Returns a list of folders successfully deleted or None if no folders
     were deleted."""
     data_folders = [pathfinder.user_path(), pathfinder.data_path(), pathfinder.thumbnails_path(),
-                    pathfinder.plugins_path(), pathfinder.colormaps_path()]
+                    pathfinder.plugins_path(), pathfinder.podmodels_path(), pathfinder.adamodels_path(),
+                    pathfinder.colormaps_path()]
     deleted_folders = []
     for folder in data_folders:
         exists_and_empty = os.path.exists(folder) and os.listdir(folder) == []
@@ -105,7 +106,7 @@ class TestMainModel(unittest.TestCase):
         data_folders = [pathfinder.user_path(), pathfinder.data_path(),
                         pathfinder.thumbnails_path(), pathfinder.gates_path(),
                         pathfinder.plugins_path(), pathfinder.podmodels_path(),
-                        pathfinder.colormaps_path(), pathfinder.batchoutput_path()]
+                        pathfinder.adamodels_path(), pathfinder.colormaps_path()]
         self.model.check_user_path()
         for folder in data_folders:
             self.assertTrue(os.path.exists(folder))
@@ -140,7 +141,6 @@ class TestMainModel(unittest.TestCase):
         """Verify main model copies system ultrasonic gate plugins to the user's
         gates folder."""
         self.copy_system_gates()
-
     def test_copy_system_colormaps(self):
         """Verify main model copies colormaps to the user's colormaps folder."""
         self.copy_system_colormaps()
