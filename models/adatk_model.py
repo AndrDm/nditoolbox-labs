@@ -56,6 +56,7 @@ class ADAModel(abstractplugin.ComputationalToolsPlugin):
             self.settings = settings
         self._data = None
         self.res_outputdata = None
+        self.res_outputpara = None
         self.res_inddata = None
         self.idx_localplot = 0
         self.config = os.path.join(pathfinder.adamodels_path(), self.__module__ + '.cfg')

@@ -287,6 +287,11 @@ class ADAWindowController(object):
                 # Create plot0 (either C-scan or A-scan)
                 Nr, Nc = model.res_outputdata[idx].shape
                 if Nr > 3:
+                    xlims = self.view.axes0.get_xlim()
+                    ylims = self.view.axes0.get_ylim()
+                    #xlims = self.view.axes0.xlims
+                    #ylims = self.view.axes0.ylims
+                    #
                     self.view.axes0.clear()
                     self.view.figure0.clear()  #in case there are extra axes like colorbars
                     self.view.axes0 = self.view.figure0.add_subplot(111, navigate=True)
@@ -303,7 +308,21 @@ class ADAWindowController(object):
                     self.view.axes0.set_xlabel('x')
                     self.view.axes0.set_ylabel('y')
                     self.view.plot0_panel.Show()
+                    #
+                    #self.view.axes0.xlims = self.view.axes0.get_xlim()
+                    #self.view.axes0.ylims = self.view.axes0.get_ylim()
+                    #
+                    xsum = xlims[0]+xlims[1]
+                    if xsum > 1:
+                        if ylims[0] > ylims[1]:
+                            self.view.axes0.set_xlim(xlims)
+                            self.view.axes0.set_ylim(ylims)
+
+                    #
                     self.refresh_plot0()
+                    #
+                    #xlims = self.view.axes0.get_xlim()
+                    #ylims = self.view.axes0.get_ylim()
                 else:
                     self.view.axes0.clear()
                     self.view.figure0.clear() #in case there are extra axes like colorbars
@@ -320,6 +339,63 @@ class ADAWindowController(object):
                 style=wx.OK | wx.ICON_ERROR)
             err_dlg.ShowModal()
             err_dlg.Destroy()
+
+    def on_gpreplot_change(self, evt):
+        """Handles selection change event for self.gp_listbox """
+        #idx = self.view.gp_listbox.GetSelection()
+        #self.view.txtoutput_tc.Clear()
+        #self.on_testrunmodel(evt)
+        try:
+            model = self.view.modeltree.get_model()
+            if model.res_outputdata is not None:
+                # Get lp_listbox seleciton for plot1
+                idx = self.view.gp_listbox.GetSelection()
+                # Create plot0 (either C-scan or A-scan)
+                Nr, Nc = model.res_outputdata[idx].shape
+                if Nr >= 3:
+                    #self.view.axes1.clear()
+                    #self.view.figure1.clear()  #in case there are extra axes like colorbars
+                    xlims = self.view.axes0.get_xlim()
+                    ylims = self.view.axes0.get_ylim()
+                    #
+                    self.view.axes0.clear()
+                    self.view.figure0.clear()  #in case there are extra axes like colorbars
+                    self.view.axes0 = self.view.figure0.add_subplot(111, navigate=True)
+                    #
+                    a0 = self.view.plot0_txt0.GetValue()
+                    i1 = int(a0)
+                    a1 = self.view.plot0_txt1.GetValue()
+                    i2 = int(a1)
+                    #
+                    self.view.axes0 = self.view.figure0.add_subplot(111, navigate=True)
+                    cax = self.view.axes0.imshow(model.res_outputdata[idx], vmin = i1, vmax = i2)
+                    #
+                    Nr1, Nc1 = model._data.shape
+                    for idx in range(Nr1):
+                        xc = model._data[idx,1]
+                        yc = model._data[idx,2]
+                        tc = str(idx+1)
+                        self.view.axes0.text(xc,yc,tc)
+                        #
+                    self.view.colorbar = self.view.figure0.colorbar(cax)
+                    self.view.axes0.set_xlabel('x')
+                    self.view.axes0.set_ylabel('y')
+                    self.view.plot0_panel.Show()
+                    #
+                    xsum = xlims[0]+xlims[1]
+                    if xsum > 1:
+                        self.view.axes0.set_xlim(xlims)
+                        self.view.axes0.set_ylim(ylims)
+                        #
+                    self.refresh_plot0()
+                    #
+        except ValueError: # No model selected
+            err_dlg = wx.MessageDialog(self.view, caption="No Model Selected",
+                message="Please select a ADA Model.",
+                style=wx.OK | wx.ICON_ERROR)
+            err_dlg.ShowModal()
+            err_dlg.Destroy()
+
 
     def on_lplistbox1_change(self, evt):
         """Handles selection change event for self.gp_listbox """
@@ -690,6 +766,7 @@ class ADAWindowController(object):
                         try:
                             self.populate_spreadsheet(self.view.output_grid, model_instance.data)
                             self.populate_spreadsheet(self.view.output_grid2, model_instance.data)
+                            self.populate_outputparaspreadsheet()
                             self.view.spreadsheet_nb.ChangeSelection(self.view.res_summary_page)
                         except MemoryError: # File too large to load
                             err_msg = "The file is too large to load."
@@ -783,6 +860,54 @@ class ADAWindowController(object):
         self.indcombo_des = indcall_des + indmetric_des
         for row in range(len(self.indcombo_txt)):
             spreadsheet_ctrl.SetColLabelValue(row,self.indcombo_txt[row])
+
+    def populate_outputparaspreadsheet(self):
+        #
+        model = self.view.modeltree.get_model()
+        #
+        names_nam = []
+        names_idx = []
+        names_txt = []
+        names_val = []
+        names_dim = []
+        names_des = []
+        for ikey, ivalues in sorted(model.outputdata.iteritems()):
+            names_nam.append(ikey)
+            names_txt.append(ivalues['name'])
+            names_idx.append(ivalues['index'])
+            names_val.append(ivalues['value'])
+            names_dim.append(ivalues['dimension'])
+            names_des.append(ivalues['description'])
+        Ni = len(names_idx)
+        idp = 0
+        outputpara_nam = []
+        outputpara_idx = []
+        outputpara_txt = []
+        outputpara_val = []
+        outputpara_des = []
+        idf = 0
+        outputdata_nam = []
+        outputdata_idx = []
+        outputdata_txt = []
+        outputdata_val = []
+        outputdata_dim = []
+        outputdata_des = []
+        for idx in range(len(names_idx)):
+            if names_dim[idx] == '0':
+                idp = idp + 1
+                outputpara_nam.append(names_nam[idx])
+                outputpara_idx.append(names_idx[idx])
+                outputpara_txt.append(names_txt[idx])
+                outputpara_val.append(names_val[idx])
+                outputpara_des.append(names_des[idx])
+            else:
+                idf = idf + 1
+                outputdata_nam.append(names_nam[idx])
+                outputdata_idx.append(names_idx[idx])
+                outputdata_txt.append(names_txt[idx])
+                outputdata_val.append(names_val[idx])
+                outputdata_des.append(names_des[idx])
+        self.refresh_rpgrid(outputpara_txt, model.res_outputpara)
 
     def populate_paraspreadsheet_headers(self, spreadsheet_ctrl):
         spreadsheet_ctrl.ClearGrid()

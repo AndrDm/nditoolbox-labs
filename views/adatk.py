@@ -341,10 +341,12 @@ class ADAWindow(wx.Frame):
             wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL)
         #splitter = wx.SplitterWindow(self.ctrl_panel2)
         #
+        #self.output_ctrl_panel2_sizer = wx.BoxSizer(wx.VERTICAL)
         self.output_ctrl_panel2_sizer = wx.BoxSizer(wx.HORIZONTAL)
         panel2_sizer21 = wx.BoxSizer(wx.HORIZONTAL)
         panel2_sizer22 = wx.BoxSizer(wx.HORIZONTAL)
         panel2_sizer23 = wx.BoxSizer(wx.VERTICAL) #21 and 22
+        #panel2_sizer23 = wx.BoxSizer(wx.HORIZONTAL) #21 and 22
         #
         panel2_text1 = wx.StaticText(self.ctrl_panel2, wx.ID_ANY, u'Indication Summary')
         panel2_text1.SetFont(wx.Font(wx.NORMAL_FONT.GetPointSize(),
@@ -377,7 +379,7 @@ class ADAWindow(wx.Frame):
         panel2_sizer23.Add(panel2_text1, 0,  ui_defaults.lbl_pct,
             ui_defaults.sizer_flags, ui_defaults.widget_margin)
         panel2_sizer23.Add(panel2_sizer21, 1, wx.ALL | wx.EXPAND, border=ui_defaults.widget_margin)
-        panel2_sizer23.Add(panel2_sizer22, 0.5, wx.ALL | wx.EXPAND, border=ui_defaults.widget_margin)
+        panel2_sizer23.Add(panel2_sizer22, 1, wx.ALL | wx.EXPAND, border=ui_defaults.widget_margin)
         panel2_sizer23.Add(panel2_text2, 0, ui_defaults.lbl_pct,
             ui_defaults.sizer_flags, ui_defaults.widget_margin)
         panel2_sizer23.Add(self.txtoutput_tc, 0, wx.ALL | wx.EXPAND, border=ui_defaults.widget_margin)
@@ -521,8 +523,8 @@ class ADAWindow(wx.Frame):
         ro_attrib = wx.grid.GridCellAttr()
         ro_attrib.SetReadOnly()
         self.rp_grid.SetColAttr(0, ro_attrib)
-        self.rp_grid.SetColSize(0, 125)
-        self.rp_grid.SetColSize(1, 125)
+        self.rp_grid.SetColSize(0, 100)
+        self.rp_grid.SetColSize(1, 150)
         self.rp_grid.SetColMinimalAcceptableWidth(100)
         self.rp_grid.SetColLabelValue(0, "Property")
         self.rp_grid.SetColLabelValue(1, "Value")
@@ -602,12 +604,38 @@ class ADAWindow(wx.Frame):
         self.axes0 = self.figure0.add_subplot(111, navigate=True)
         self.axes0.grid(True)
 
-        plot0_lbl = wx.StaticText(self.plot0_panel, wx.ID_ANY, u"C-Scan Viewer",
+        cscan_panel = wx.Panel(self.plot0_panel)
+        cscan_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        plot0_lbl = wx.StaticText(cscan_panel, wx.ID_ANY, u"C-Scan Viewer",
             wx.DefaultPosition, wx.DefaultSize, 0)
         plot0_lbl.SetFont(wx.Font(wx.NORMAL_FONT.GetPointSize(),
             70, 90, 92, False, wx.EmptyString))
+        cscan_panel_sizer.Add(plot0_lbl, lbl_pct, lblsizer_flags, widget_margin)
 
-        self.plot0_panel_sizer.Add(plot0_lbl, 0, ui_defaults.sizer_flags,
+        self.plot0_txt0 = wx.TextCtrl(cscan_panel, wx.ID_ANY, u"0",
+            wx.DefaultPosition, wx.DefaultSize, 0)
+        cscan_panel_sizer.Add(self.plot0_txt0, lbl_pct, lblsizer_flags, widget_margin)
+
+        self.plot0_txt1 = wx.TextCtrl(cscan_panel, wx.ID_ANY, u"1",
+            wx.DefaultPosition, wx.DefaultSize, 0)
+        cscan_panel_sizer.Add(self.plot0_txt1, lbl_pct, lblsizer_flags, widget_margin)
+
+        self.replot_btn = wx.Button(cscan_panel, wx.ID_ANY, "Replot", wx.DefaultPosition, wx.DefaultSize)
+        self.Bind(wx.EVT_BUTTON, self.controller.on_gpreplot_change, id=self.replot_btn.GetId())
+        cscan_panel_sizer.Add(self.replot_btn, lbl_pct, lblsizer_flags, widget_margin)
+
+        self.plot0_lblz = wx.StaticText(cscan_panel, wx.ID_ANY, u"         ",
+            wx.DefaultPosition, wx.DefaultSize, 0)
+        cscan_panel_sizer.Add(self.plot0_lblz, lbl_pct, lblsizer_flags, widget_margin)
+
+        #plot0_lbly = wx.StaticText(cscan_panel, wx.ID_ANY, u"y= 0.0000",
+        #    wx.DefaultPosition, wx.DefaultSize, 0)
+        #cscan_panel_sizer.Add(plot0_lbly, lbl_pct, lblsizer_flags, widget_margin)
+
+        cscan_panel.SetSizerAndFit(cscan_panel_sizer)
+
+        self.plot0_panel_sizer.Add(cscan_panel, 0, ui_defaults.sizer_flags,
             ui_defaults.widget_margin)
         self.plot0_panel_sizer.Add(self.canvas0, ui_defaults.ctrl_pct, ui_defaults.sizer_flags,
             ui_defaults.widget_margin)
