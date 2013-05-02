@@ -722,6 +722,23 @@ class ADAWindowController(object):
             folders = self.view.dirtree.get_folders()
         self.view.listfolders_lb.Set(sorted(folders))
 
+    def on_folder_save(self, evt):
+        """Handles request to save folders"""
+        filename_folders = 'folder_list.tmp'
+        folders = self.view.listfolders_lb.GetStrings()
+        thefile = open(filename_folders, 'w')
+        for item in folders:
+            thefile.write("%s\n" % item)
+        thefile.close()
+
+    def on_folder_load(self, evt):
+        """Handles request to load folders(from file)"""
+        filename_folders = 'folder_list.tmp'
+        with open(filename_folders) as thefile:
+            folders = thefile.read().splitlines()
+        thefile.close()
+        self.view.listfolders_lb.Set(folders)
+
     def on_search_files(self, evt):
         """Handles request to search selected folder(s) for files matching specified file extension."""
         self.view.listfiles_lb.Clear()
@@ -739,54 +756,119 @@ class ADAWindowController(object):
     def run_model(self, model_instance):
         """Runs the specified ADA Model instance in a separate thread."""
         exception_queue = Queue.Queue()
-        model_thd = workerthread.WorkerThread(exception_queue=exception_queue,
+        idx_run = self.view.radioBox1.GetSelection()
+        # idx_run = 0:  Single File Run (include Dialog Box for File Selection)
+        if idx_run == 0:
+            model = self.view.modeltree.get_model()
+            for ikey, ivalues in sorted(model.inputdata.iteritems()):
+                if ivalues['index'] == '1':
+                    ivalues['value'] = '1'
+            model_thd = workerthread.WorkerThread(exception_queue=exception_queue,
                                               target=model_instance.run)
-        model_thd.start()
-        progress_dlg = dialogs.progressDialog(dlg_title="Running ADA Model",
+            model_thd.start()
+            progress_dlg = dialogs.progressDialog(dlg_title="Running ADA Model",
                                               dlg_msg="Please wait, running ADA Model...")
-        while True:
-            model_thd.join(0.125)
-            progress_dlg.update()
-            if not model_thd.is_alive():
-                try:
-                    exc_type, exc = exception_queue.get(block=False)
-                    err_msg = "An error occurred while running the ADA Model:\n{0}".format(exc)
-                    err_dlg = wx.MessageDialog(self.view.parent, message=err_msg,
-                                               caption="Error In ADA Model Execution",
-                                               style=wx.ICON_ERROR)
-                    err_dlg.ShowModal()
-                    err_dlg.Destroy()
-                    return
-                except Queue.Empty:
-                    # No errors occurred, continue processing
-                    model_instance.plot0(self.view.axes0, self.view.figure0)
-                    model_instance.plot1(self.view.axes1, self.view.figure1)
-                    model_instance.plot2(self.view.axes2, self.view.figure2)
-                    if model_instance.data is not None: # Model returned data to display
+            while True:
+                model_thd.join(0.125)
+                progress_dlg.update()
+                if not model_thd.is_alive():
+                    try:
+                        exc_type, exc = exception_queue.get(block=False)
+                        err_msg = "An error occurred while running the ADA Model:\n{0}".format(exc)
+                        err_dlg = wx.MessageDialog(self.view.parent, message=err_msg,
+                                                   caption="Error In ADA Model Execution",
+                                                   style=wx.ICON_ERROR)
+                        err_dlg.ShowModal()
+                        err_dlg.Destroy()
+                        return
+                    except Queue.Empty:
+                        # No errors occurred, continue processing
+                        model_instance.plot0(self.view.axes0, self.view.figure0)
+                        model_instance.plot1(self.view.axes1, self.view.figure1)
+                        model_instance.plot2(self.view.axes2, self.view.figure2)
+                        if model_instance.data is not None: # Model returned data to display
+                            try:
+                                self.populate_spreadsheet(self.view.output_grid, model_instance.data)
+                                self.populate_spreadsheet(self.view.output_grid2, model_instance.data)
+                                self.populate_outputparaspreadsheet()
+                                self.view.spreadsheet_nb.ChangeSelection(self.view.res_summary_page)
+                            except MemoryError: # File too large to load
+                                err_msg = "The file is too large to load."
+                                err_dlg = wx.MessageDialog(self.view, message=err_msg,
+                                                           caption="Unable To Preview Data",
+                                                           style=wx.ICON_ERROR)
+                                err_dlg.ShowModal()
+                                err_dlg.Destroy()
+                    #if model_instance.params is not None: # Model return output text to display
+                    #    for key, value in model_instance.settings.iteritems():
+                    #        self.view.txtoutput_tc.WriteText(model_instance.results)
+                        if model_instance.results is not None: # Model return output text to display
+                            self.view.txtoutput_tc.Clear()
+                            self.view.txtoutput_tc.WriteText(model_instance.results)
+                        self.refresh_plots()
+                        self.refresh_plot0()
+                        break
+                    finally:
+                        progress_dlg.close()
+                wx.GetApp().Yield(True)
+
+        # idx_run = 1:  Parametric Study Run (include Dialog Box for File Selection)
+        if idx_run == 1:
+            file_list = self.view.listfiles_lb.GetStrings()
+            for item in file_list:
+                # start loop for files in file_list
+                model = self.view.modeltree.get_model()
+                for ikey, ivalues in sorted(model.inputdata.iteritems()):
+                    if ivalues['index'] == '1':
+                        ivalues['value'] = item
+                model_thd = workerthread.WorkerThread(exception_queue=exception_queue,
+                    target=model_instance.run)
+                model_thd.start()
+                progress_dlg = dialogs.progressDialog(dlg_title="Running ADA Model - Parametric Study",
+                    dlg_msg="Please wait, running ADA Model - Parametric Study...")
+                while True:
+                    model_thd.join(0.125)
+                    progress_dlg.update()
+                    if not model_thd.is_alive():
                         try:
-                            self.populate_spreadsheet(self.view.output_grid, model_instance.data)
-                            self.populate_spreadsheet(self.view.output_grid2, model_instance.data)
-                            self.populate_outputparaspreadsheet()
-                            self.view.spreadsheet_nb.ChangeSelection(self.view.res_summary_page)
-                        except MemoryError: # File too large to load
-                            err_msg = "The file is too large to load."
-                            err_dlg = wx.MessageDialog(self.view, message=err_msg,
-                                                       caption="Unable To Preview Data",
-                                                       style=wx.ICON_ERROR)
+                            exc_type, exc = exception_queue.get(block=False)
+                            err_msg = "An error occurred while running the ADA Model:\n{0}".format(exc)
+                            err_dlg = wx.MessageDialog(self.view.parent, message=err_msg,
+                                caption="Error In ADA Model Execution",
+                                style=wx.ICON_ERROR)
                             err_dlg.ShowModal()
                             err_dlg.Destroy()
-                #if model_instance.params is not None: # Model return output text to display
-                #    for key, value in model_instance.settings.iteritems():
-                #        self.view.txtoutput_tc.WriteText(model_instance.results)
-                    if model_instance.results is not None: # Model return output text to display
-                        self.view.txtoutput_tc.Clear()
-                        self.view.txtoutput_tc.WriteText(model_instance.results)
-                    self.refresh_plots()
-                    self.refresh_plot0()
-                    break
-                finally:
-                    progress_dlg.close()
-            wx.GetApp().Yield(True)
+                            return
+                        except Queue.Empty:
+                            # No errors occurred, continue processing
+                            model_instance.plot0(self.view.axes0, self.view.figure0)
+                            model_instance.plot1(self.view.axes1, self.view.figure1)
+                            model_instance.plot2(self.view.axes2, self.view.figure2)
+                            if model_instance.data is not None: # Model returned data to display
+                                try:
+                                    self.populate_spreadsheet(self.view.output_grid, model_instance.data)
+                                    self.populate_spreadsheet(self.view.output_grid2, model_instance.data)
+                                    self.populate_outputparaspreadsheet()
+                                    self.view.spreadsheet_nb.ChangeSelection(self.view.res_summary_page)
+                                except MemoryError: # File too large to load
+                                    err_msg = "The file is too large to load."
+                                    err_dlg = wx.MessageDialog(self.view, message=err_msg,
+                                        caption="Unable To Preview Data",
+                                        style=wx.ICON_ERROR)
+                                    err_dlg.ShowModal()
+                                    err_dlg.Destroy()
+                                    #if model_instance.params is not None: # Model return output text to display
+                                    #    for key, value in model_instance.settings.iteritems():
+                                    #        self.view.txtoutput_tc.WriteText(model_instance.results)
+                            if model_instance.results is not None: # Model return output text to display
+                                self.view.txtoutput_tc.Clear()
+                                self.view.txtoutput_tc.WriteText(model_instance.results)
+                            self.refresh_plots()
+                            self.refresh_plot0()
+                            break
+                        finally:
+                            progress_dlg.close()
+                    wx.GetApp().Yield(True)
 
     def refresh_plot0(self):
         """Forces update to the plots (required after some plotting commands)"""

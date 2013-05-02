@@ -225,11 +225,30 @@ class ADAWindow(wx.Frame):
         self.dirtree.SetToolTipString("Lists the folders that will be searched for files")
         self.left_panel_sizer.Add(self.dirtree, ctrl_pct, sizer_flags, widget_margin)
         #
-        self.listfolders_btn = wx.Button(self.left_panel, wx.ID_ANY, "Generate Folder List", wx.DefaultPosition,
+        btn2_panel = wx.Panel(self.left_panel)
+        btn2_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        #
+        self.listfolders_btn = wx.Button(btn2_panel, wx.ID_ANY, "Generate Folder List", wx.DefaultPosition,
             wx.DefaultSize)
         self.listfolders_btn.SetToolTipString("Lists the folder and its subfolders that will be searched")
         self.Bind(wx.EVT_BUTTON, self.controller.on_folder_list, id=self.listfolders_btn.GetId())
-        self.left_panel_sizer.Add(self.listfolders_btn, lbl_pct, lblsizer_flags, widget_margin)
+        btn2_panel_sizer.Add(self.listfolders_btn, lbl_pct, sizer_flags, widget_margin)
+        #
+        self.savefolders_btn = wx.Button(btn2_panel, wx.ID_ANY, "Save Folder List", wx.DefaultPosition,
+            wx.DefaultSize)
+        self.listfolders_btn.SetToolTipString("Saves the list of folders that will be searched")
+        self.Bind(wx.EVT_BUTTON, self.controller.on_folder_save, id=self.savefolders_btn.GetId())
+        btn2_panel_sizer.Add(self.savefolders_btn, lbl_pct, sizer_flags, widget_margin)
+        #
+        self.loadfolders_btn = wx.Button(btn2_panel, wx.ID_ANY, "Reload Saved List", wx.DefaultPosition,
+            wx.DefaultSize)
+        self.listfolders_btn.SetToolTipString("Reload the saved list of folders that will be searched")
+        self.Bind(wx.EVT_BUTTON, self.controller.on_folder_load, id=self.loadfolders_btn.GetId())
+        btn2_panel_sizer.Add(self.loadfolders_btn, lbl_pct, sizer_flags, widget_margin)
+        #
+        btn2_panel.SetSizerAndFit(btn2_panel_sizer)
+        self.left_panel_sizer.Add(btn2_panel, lbl_pct, lblsizer_flags, widget_margin)
+        #
         self.listfolders_lb = wx.ListBox(self.left_panel, wx.ID_ANY, style=wx.LB_EXTENDED)
         self.listfolders_lb.SetToolTipString("Select one or more folders to search, or select none to search all folders listed")
         self.left_panel_sizer.Add(self.listfolders_lb, ctrl_pct, sizer_flags|wx.ALIGN_LEFT, widget_margin)

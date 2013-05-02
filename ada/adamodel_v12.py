@@ -106,8 +106,17 @@ class CompositeADABasic1(ADAModel):
         Nf = idf
 
         ############################################################################
-        self.select_filename()
-        filepath = self.filenm
+        for ikey, ivalues in sorted(self.inputdata.iteritems()):
+            if ivalues['index'] == '1':
+                filepath1 = ivalues['value']
+        if filepath1 == '1':
+            self.select_filename()
+            filepath = self.filenm
+        else:
+            filepath = filepath1
+            self.filenm = filepath1
+
+        ############################################################################
         #ext = ".rf"
         if ".rf" in filepath:
             self.load_rf()
