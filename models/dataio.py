@@ -165,6 +165,13 @@ def get_utwin_data(data_file):
     scan_reader.read_data()
     return scan_reader.data
 
+def get_utwin_prop(data_file):
+    """Convenience function to create a UTWinCScanReader instance and return all the data from data_file.
+    Primarily intended for use in threading and multiprocessing."""
+    scan_reader = UTWinCScanDataFile(data_file)
+    scan_reader.read_scan_properties()
+    return scan_reader.scan_properties
+
 def get_winspect_data(data_file):
     """Convenience function to create a WinspectReader instance and return the waveform data from data_file.
     Primarily intended for use in threading and multiprocessing."""
@@ -229,15 +236,21 @@ class UTWinCscanReader(object):
     def find_message(cls, file_name, message_id):
         """Returns the position in the UTWin file corresponding to the specified message ID.
         Returns -1 if message ID not found in the file."""
-        with open(file_name, "rb") as fidin:
-            fidin.seek(cls.header_string_length)
-            msg_id, msg_len = cls.msg_info(fidin)
-            while msg_id != message_id:
-                fidin.read(msg_len-4)
+        status = -1
+        try:
+            with open(file_name, "rb") as fidin:
+                fidin.seek(cls.header_string_length)
                 msg_id, msg_len = cls.msg_info(fidin)
-                if msg_id is None or msg_len == 0:
-                    return -1
-            return fidin.tell()
+                while msg_id != message_id:
+                    fidin.read(msg_len-4)
+                    msg_id, msg_len = cls.msg_info(fidin)
+                    if msg_id is None or msg_len == 0:
+                        status = -1
+                        return status
+                status = fidin.tell()
+        except:
+            pass
+        return status
 
     @classmethod
     def find_blocks(cls, file_name, message_id):

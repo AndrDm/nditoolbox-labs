@@ -815,7 +815,10 @@ class ADAWindowController(object):
         # idx_run = 1:  Parametric Study Run (include Dialog Box for File Selection)
         if idx_run == 1:
             file_list = self.view.listfiles_lb.GetStrings()
+            i0 = 0
+            i1 = len(file_list)
             for item in file_list:
+                i0 = i0 + 1
                 # start loop for files in file_list
                 model = self.view.modeltree.get_model()
                 for ikey, ivalues in sorted(model.inputdata.iteritems()):
@@ -824,8 +827,9 @@ class ADAWindowController(object):
                 model_thd = workerthread.WorkerThread(exception_queue=exception_queue,
                     target=model_instance.run)
                 model_thd.start()
-                progress_dlg = dialogs.progressDialog(dlg_title="Running ADA Model - Parametric Study",
-                    dlg_msg="Please wait, running ADA Model - Parametric Study...")
+                txt1 = 'Please wait, running ADA Model - Validation Study...Run ' + str(i0) + ' of ' + str(i1) + '.'
+                progress_dlg = dialogs.progressDialog(dlg_title="Running ADA Model - Validation Study",
+                    dlg_msg=txt1)
                 while True:
                     model_thd.join(0.125)
                     progress_dlg.update()
