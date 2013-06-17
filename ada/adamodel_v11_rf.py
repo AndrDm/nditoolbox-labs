@@ -8,9 +8,12 @@ import array
 import tempfile
 import os.path
 import os
-import Image
+try:
+    import Image
+except ImportError: # Use alternate PIL module loading
+    from PIL import Image
 import cv2
-from cv2 import cv
+
 
 # All ADA Models must be a subclass of ADAModel
 class CompositeADABasic1(ADAModel):
@@ -471,7 +474,7 @@ class CompositeADABasic1(ADAModel):
         image2 = cv2.imread(filename, cv2.CV_LOAD_IMAGE_GRAYSCALE)
 
         # 4) find regions of interest using OpenCV FindContours algorithm
-        contours, hierarchy = cv2.findContours( image2, cv.CV_RETR_TREE, cv.CV_CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours( image2, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         nb_cont = len(contours)
         self.nb = nb_cont
         self.contours = contours
