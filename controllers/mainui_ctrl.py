@@ -296,27 +296,30 @@ class MainUIController(object):
         file_dlg = wx.FileDialog(parent=self.view.parent, message='Please specify a data file',
                                  wildcard=wildcards, style=wx.FD_OPEN)
         if file_dlg.ShowModal() == wx.ID_OK:
-            try:
-                wx.BeginBusyCursor()
-                import_dlg = dlg.ImportDataDialog(parent=self.view, file_name=file_dlg.GetPath())
-                if import_dlg.ShowModal() == wx.ID_OK:
-                    file_type = import_dlg.get_selected_filetype()
-                    file_to_import = file_dlg.GetPath()
-                    if file_type == 'hdf5': # Native NDIToolbox HDF5
-                        self.import_hdf5(file_to_import)
-                    elif file_type == 'text': # Delimited Text
-                        self.import_text(file_to_import)
-                    elif file_type == 'image': # Bitmaps
-                        self.import_image(file_to_import)
-                    elif file_type == 'utwin_cscan': # UTWin Cscan (.csc)
-                        self.import_csc(file_to_import)
-                    elif file_type == 'winspect7': # Winspect 6 or 7 (.sdt)
-                        self.import_sdt(file_to_import)
-                    elif file_type == 'dicom': # DICOM/DICONDE (.dcm)
-                        self.import_dicom(file_to_import)
-            finally:
-                import_dlg.Destroy()
-                wx.EndBusyCursor()
+            self.select_import_function(file_dlg.GetPath())
+
+    def select_import_function(self, file_to_import):
+        """Asks the user to specify the file format to use to import the given data file"""
+        import_dlg = dlg.ImportDataDialog(parent=self.view, file_name=file_to_import)
+        try:
+            wx.BeginBusyCursor()
+            if import_dlg.ShowModal() == wx.ID_OK:
+                file_type = import_dlg.get_selected_filetype()
+                if file_type == 'hdf5': # Native NDIToolbox HDF5
+                    self.import_hdf5(file_to_import)
+                elif file_type == 'text': # Delimited Text
+                    self.import_text(file_to_import)
+                elif file_type == 'image': # Bitmaps
+                    self.import_image(file_to_import)
+                elif file_type == 'utwin_cscan': # UTWin Cscan (.csc)
+                    self.import_csc(file_to_import)
+                elif file_type == 'winspect7': # Winspect 6 or 7 (.sdt)
+                    self.import_sdt(file_to_import)
+                elif file_type == 'dicom': # DICOM/DICONDE (.dcm)
+                    self.import_dicom(file_to_import)
+        finally:
+            import_dlg.Destroy()
+            wx.EndBusyCursor()
 
     def on_browse_userpath(self, evt):
         """Handles request to browse to the default userpath"""
@@ -391,8 +394,11 @@ class MainUIController(object):
             if not import_thd.is_alive():
                 try:
                     exc_type, exc = exception_queue.get(block=False)
-                    module_logger.error("Error importing text file: {0}".format(exc))
-                    err_msg = "An error occurred during import:\n{0}".format(exc)
+                    err_str = str(exc)
+                    if len(err_str) == 0:
+                        err_str = exc_type.__name__
+                    module_logger.error("Error importing text file: {0}".format(err_str))
+                    err_msg = "An error occurred during import:\n{0}".format(err_str)
                     err_dlg = wx.MessageDialog(self.view, message=err_msg,
                                                caption="Unable To Import File", style=wx.ICON_ERROR)
                     err_dlg.ShowModal()
@@ -462,8 +468,11 @@ class MainUIController(object):
                     if not export_text_thd.is_alive():
                         try:
                             exc_type, exc = exception_queue.get(block=False)
-                            module_logger.error("Error exporting to text file: {0}".format(exc))
-                            err_msg = "An error occurred during export:\n{0}".format(exc)
+                            err_str = str(exc)
+                            if len(err_str) == 0:
+                                err_str = exc_type.__name__
+                            module_logger.error("Error exporting to text file: {0}".format(err_str))
+                            err_msg = "An error occurred during export:\n{0}".format(err_str)
                             err_dlg = wx.MessageDialog(self.view, message=err_msg,
                                                        caption="Unable To Export File", style=wx.ICON_ERROR)
                             err_dlg.ShowModal()
