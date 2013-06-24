@@ -360,12 +360,15 @@ class ADAWindow(wx.Frame):
             wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL)
         #splitter = wx.SplitterWindow(self.ctrl_panel2)
         #
-        #self.output_ctrl_panel2_sizer = wx.BoxSizer(wx.VERTICAL)
-        self.output_ctrl_panel2_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        panel2_sizer21 = wx.BoxSizer(wx.HORIZONTAL)
-        panel2_sizer22 = wx.BoxSizer(wx.HORIZONTAL)
-        panel2_sizer23 = wx.BoxSizer(wx.VERTICAL) #21 and 22
-        #panel2_sizer23 = wx.BoxSizer(wx.HORIZONTAL) #21 and 22
+        self.output_ctrl_panel2_sizer = wx.BoxSizer(wx.VERTICAL)
+        #self.output_ctrl_panel2_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.panel2_sizer21 = wx.BoxSizer(wx.HORIZONTAL)
+        self.panel2_sizer22 = wx.BoxSizer(wx.HORIZONTAL)
+        self.panel2_sizer23 = wx.BoxSizer(wx.VERTICAL)
+        self.panel2_sizer24 = wx.BoxSizer(wx.VERTICAL)
+        #panel2_sizer23 = wx.BoxSizer(wx.HORIZONTAL)
+        self.panel2_sizer25 = wx.BoxSizer(wx.HORIZONTAL)
+        #panel2_sizer25 = wx.BoxSizer(wx.VERTICAL)
         #
         panel2_text1 = wx.StaticText(self.ctrl_panel2, wx.ID_ANY, u'Indication Summary')
         panel2_text1.SetFont(wx.Font(wx.NORMAL_FONT.GetPointSize(),
@@ -388,22 +391,26 @@ class ADAWindow(wx.Frame):
         #
         #####
         self.output_tb.Realize()
-        panel2_sizer21.Add(self.output_tb, 0, wx.EXPAND, border=ui_defaults.widget_margin)
-        panel2_sizer21.Add(self.output_grid, 1, wx.TOP | wx.LEFT | wx.GROW)
+        self.panel2_sizer21.Add(self.output_tb, 0, wx.EXPAND, border=ui_defaults.widget_margin)
+        self.panel2_sizer21.Add(self.output_grid, 1, wx.TOP | wx.LEFT | wx.GROW)
         #
-        panel2_sizer22.Add(self.runprops_panel, 1, wx.ALL | wx.EXPAND, border=ui_defaults.widget_margin)
-        panel2_sizer22.Add(wx.StaticLine(self.ctrl_panel2, -1))
-        panel2_sizer22.Add(self.globalplot_panel, 1, wx.ALL | wx.EXPAND, border=ui_defaults.widget_margin)
+        self.panel2_sizer22.Add(self.runprops_panel, 1, wx.ALL | wx.EXPAND, border=ui_defaults.widget_margin)
+        self.panel2_sizer22.Add(wx.StaticLine(self.ctrl_panel2, -1))
+        self.panel2_sizer22.Add(self.globalplot_panel, 1, wx.ALL | wx.EXPAND, border=ui_defaults.widget_margin)
         #
-        panel2_sizer23.Add(panel2_text1, 0,  ui_defaults.lbl_pct,
+        self.panel2_sizer23.Add(panel2_text1, 0,  ui_defaults.lbl_pct,
             ui_defaults.sizer_flags, ui_defaults.widget_margin)
-        panel2_sizer23.Add(panel2_sizer21, 1, wx.ALL | wx.EXPAND, border=ui_defaults.widget_margin)
-        panel2_sizer23.Add(panel2_sizer22, 1, wx.ALL | wx.EXPAND, border=ui_defaults.widget_margin)
-        panel2_sizer23.Add(panel2_text2, 0, ui_defaults.lbl_pct,
-            ui_defaults.sizer_flags, ui_defaults.widget_margin)
-        panel2_sizer23.Add(self.txtoutput_tc, 0, wx.ALL | wx.EXPAND, border=ui_defaults.widget_margin)
+        self.panel2_sizer23.Add(self.panel2_sizer21, 1, wx.ALL | wx.EXPAND, border=ui_defaults.widget_margin)
         #
-        self.output_ctrl_panel2_sizer.Add(panel2_sizer23, 1, wx.ALL | wx.EXPAND)
+        self.panel2_sizer24.Add(self.panel2_sizer22, 1, wx.ALL | wx.EXPAND, border=ui_defaults.widget_margin)
+        self.panel2_sizer24.Add(panel2_text2, 0, ui_defaults.lbl_pct,
+            ui_defaults.sizer_flags, ui_defaults.widget_margin)
+        self.panel2_sizer24.Add(self.txtoutput_tc, 0, wx.ALL | wx.EXPAND, border=ui_defaults.widget_margin)
+        #
+        self.panel2_sizer25.Add(self.panel2_sizer23, 1, wx.ALL | wx.EXPAND, border=ui_defaults.widget_margin)
+        self.panel2_sizer25.Add(self.panel2_sizer24, 1, wx.ALL | wx.EXPAND, border=ui_defaults.widget_margin)
+        #
+        self.output_ctrl_panel2_sizer.Add(self.panel2_sizer25, 1, wx.ALL | wx.EXPAND)
         self.output_ctrl_panel2_sizer.Add(self.plot0_panel, 1, wx.ALL | wx.EXPAND)
         #splitter.SplitVertically(panel2_sizer23, self.plot0_panel)
         #self.output_ctrl_panel2_sizer.Add(splitter, 1, wx.EXPAND)
@@ -643,6 +650,10 @@ class ADAWindow(wx.Frame):
         self.replot_btn = wx.Button(cscan_panel, wx.ID_ANY, "Replot", wx.DefaultPosition, wx.DefaultSize)
         self.Bind(wx.EVT_BUTTON, self.controller.on_gpreplot_change, id=self.replot_btn.GetId())
         cscan_panel_sizer.Add(self.replot_btn, lbl_pct, lblsizer_flags, widget_margin)
+
+        self.swplot_btn = wx.CheckBox(cscan_panel, -1, "Plot (V/H)", wx.DefaultPosition)
+        self.Bind(wx.EVT_CHECKBOX, self.controller.on_gpswplot_change, id=self.swplot_btn.GetId())
+        cscan_panel_sizer.Add(self.swplot_btn, lbl_pct, lblsizer_flags, widget_margin)
 
         self.plot0_lblz = wx.StaticText(cscan_panel, wx.ID_ANY, u"         ",
             wx.DefaultPosition, wx.DefaultSize, 0)

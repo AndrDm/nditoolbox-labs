@@ -396,6 +396,46 @@ class ADAWindowController(object):
             err_dlg.ShowModal()
             err_dlg.Destroy()
 
+    def on_gpswplot_change(self, evt):
+        """Handles selection change event for checkbox  """
+        gp_cond = self.view.swplot_btn.GetValue()
+        #
+        if gp_cond:
+            self.view.ctrl_panel2.Hide()
+            self.view.output_ctrl_panel2_sizer.SetOrientation(wx.HORIZONTAL)
+            self.view.panel2_sizer25.SetOrientation(wx.VERTICAL)
+            #
+            self.view.output_ctrl_panel2_sizer.Layout()
+            self.view.panel2_sizer21.Layout()
+            self.view.panel2_sizer22.Layout()
+            self.view.panel2_sizer23.Layout()
+            self.view.panel2_sizer24.Layout()
+            self.view.panel2_sizer25.Layout()
+            #
+            self.view.ctrl_panel2.Layout()
+            self.view.ctrl_panel2.Refresh()
+            self.view.ctrl_panel2.Show()
+            #
+            self.view.Refresh()
+            self.view.Update()
+        else:
+            self.view.ctrl_panel2.Hide()
+            self.view.output_ctrl_panel2_sizer.SetOrientation(wx.VERTICAL)
+            self.view.panel2_sizer25.SetOrientation(wx.HORIZONTAL)
+            #
+            self.view.output_ctrl_panel2_sizer.Layout()
+            self.view.panel2_sizer21.Layout()
+            self.view.panel2_sizer22.Layout()
+            self.view.panel2_sizer23.Layout()
+            self.view.panel2_sizer24.Layout()
+            self.view.panel2_sizer25.Layout()
+            #
+            self.view.ctrl_panel2.Layout()
+            self.view.ctrl_panel2.Refresh()
+            self.view.ctrl_panel2.Show()
+            #
+            self.view.Refresh()
+            self.view.Update()
 
     def on_lplistbox1_change(self, evt):
         """Handles selection change event for self.gp_listbox """

@@ -8,11 +8,18 @@ from scipy.ndimage.filters import median_filter
 from scipy.signal import hilbert
 import wx
 
+import bisect
+
 import array
-import Image
+try:
+    import Image
+except ImportError: # Use alternate PIL module loading
+    from PIL import Image
+
 import cv2
 from cv2 import cv
 
+from models import dataio
 import winspect
 import utwin
 from os.path import basename
@@ -117,6 +124,45 @@ class CompositeADABasic1(ADAModel):
             self.filenm = filepath1
 
         ############################################################################
+        for ikey, ivalues in sorted(self.params.iteritems()):
+            if ivalues['index'] == '1':
+                para_dx1 = float(ivalues['value'])
+            elif ivalues['index'] == '2':
+                para_dy1 = float(ivalues['value'])
+            elif ivalues['index'] == '3':
+                para_da1 = float(ivalues['value'])
+            elif ivalues['index'] == '4':
+                para_th1 = float(ivalues['value'])
+            elif ivalues['index'] == '5':
+                para_th2 = float(ivalues['value'])
+            elif ivalues['index'] == '6':
+                para_th3 = float(ivalues['value'])
+            elif ivalues['index'] == '7':
+                para_th4 = float(ivalues['value'])
+            elif ivalues['index'] == '8':
+                para_df1 = float(ivalues['value'])
+            elif ivalues['index'] == '9':
+                para_df2 = float(ivalues['value'])
+            elif ivalues['index'] == '10':
+                para_ew1 = float(ivalues['value'])
+            elif ivalues['index'] == '11':
+                para_ew2 = float(ivalues['value'])
+            elif ivalues['index'] == '12':
+                para_cl = float(ivalues['value'])
+            elif ivalues['index'] == '13':
+                para_nlp = float(ivalues['value'])
+            elif ivalues['index'] == '14':
+                para_l12 = float(ivalues['value'])
+            elif ivalues['index'] == '15':
+                para_l23 = float(ivalues['value'])
+            elif ivalues['index'] == '16':
+                para_tp1 = float(ivalues['value'])
+            elif ivalues['index'] == '17':
+                para_tp2 = float(ivalues['value'])
+            elif ivalues['index'] == '18':
+                para_tp3 = float(ivalues['value'])
+
+        ############################################################################
         #ext = ".rf"
         if ".rf" in filepath:
             self.load_rf()
@@ -137,35 +183,36 @@ class CompositeADABasic1(ADAModel):
             self.para_a1 = 0.250  # %FSH or largest signal for frontwall / backwall calls = 64
             self.para_a2 = 0.199  # %FSH for second signal threshold (making feature calls) = 51
             self.para_a3 = 0.250  # %FSH for through thickness features (making feature calls) - defect features (0.180)
-            #self.para_a3 = 0.175  # %FSH for through thickness features (making feature calls) - defect features (0.180)
             self.para_a4 = 0.300  # %drop from FSH for backwall signal
-            #self.para_a1 = 0.500  # %FSH or largest signal for frontwall / backwall calls = 64
-            #self.para_a2 = 0.398  # %FSH for second signal threshold (making feature calls) = 51
-            #self.para_a3 = 0.280  # %FSH for through thickness features (making feature calls) - defect features
-            #self.para_a4 = 0.500  # %drop from FSH for backwall signal
-            self.para_t1 = 250 # time offset 1 - ringdown for front wall signal
-            self.para_t2 = 75 # time offset 2 - ringdown before back wall signal
-            self.para_c1 = 9 # 9 pixels in total area
-            self.para_c2 = 3 # 3 pixels wide
-            self.para_c3 = 3 # 3 pixels long
+            #self.para_t1 = 250 # time offset 1 - ringdown for front wall signal
+            #self.para_t2 = 75 # time offset 2 - ringdown before back wall signal
+            self.para_c1 = int(para_da1)  # 9 pixels in total area (= 4 by OpenCV math)
+            self.para_c2 = int(para_dx1)  # 3 pixels wide
+            self.para_c3 = int(para_dy1)  # 3 pixels long
         #
         elif ".csc" in filepath:
             self.load_csc()
             #
-            self.para_a1 = 0.500  # %FSH or largest signal for frontwall / backwall calls = 64
-            self.para_a2 = 0.398  # %FSH for second signal threshold (making feature calls) = 51
-            self.para_a3 = 0.280  # %FSH for through thickness features (making feature calls) - defect features
-            self.para_a4 = 0.500  # %drop from FSH for backwall signal
-            self.para_t1 = 380 # time offset 1 - ringdown for front wall signal
-            self.para_t2 = 75 # time offset 2 - ringdown before back wall signal
-            self.para_c1 = 9 # 9 pixels in total area
-            self.para_c2 = 3 # 3 pixels wide
-            self.para_c3 = 3 # 3 pixels long
-        #
-        self.para_e0 = 3 # radii associated with length criteria from edge to acreage portion of panels (1.2")
-        self.para_e0a = round(0.707*self.para_e0) # radii associated with length criteria from edge to acreage portion of panels (1.2")
-        self.para_e1 = 15 # radii associated with length criteria from edge to acreage portion of panels (1.2")
-        self.para_e2 = round(0.707*self.para_e1) # radii associated with length criteria from edge to acreage portion of panels (1.2")
+            #self.para_a1 = 0.200  # %FSH or largest signal for frontwall / backwall calls = 64
+            #self.para_a2 = 0.398  # %FSH for second signal threshold (making feature calls) = 51
+            #self.para_a3 = 0.280  # %FSH for through thickness features (making feature calls) - defect features
+            #self.para_a4 = 0.500  # %drop from FSH for backwall signal
+            #self.para_c1 = 9 # 9 pixels in total area
+            #self.para_c2 = 3 # 3 pixels wide
+            #self.para_c3 = 3 # 3 pixels long
+            #
+            self.para_a1 = para_th1  # %FSH or largest signal for frontwall / backwall calls = 64
+            self.para_a2 = para_th2  # %FSH for second signal threshold (making feature calls) = 51
+            self.para_a3 = para_th3  # %FSH for through thickness features (making feature calls) - defect features
+            self.para_a4 = para_th4  # %drop from FSH for backwall signal
+            self.para_c1 = int(para_da1)  # 9 pixels in total area (= 4 by OpenCV math)
+            self.para_c2 = int(para_dx1)  # 3 pixels wide
+            self.para_c3 = int(para_dy1)  # 3 pixels long
+            #
+        self.para_e0 = int(para_ew1) # = 3, radii associated with length criteria from edge to acreage portion of panels (1.2")
+        self.para_e0a = int(round(0.707*self.para_e0)) # radii associated with length criteria from edge to acreage portion of panels (1.2")
+        self.para_e1 = int(para_ew2) # = 15, radii associated with length criteria from edge to acreage portion of panels (1.2")
+        self.para_e2 = int(round(0.707*self.para_e1)) # radii associated with length criteria from edge to acreage portion of panels (1.2")
         #
         Nx, Ny, Nt = self.inter_data.shape
         #
@@ -196,43 +243,78 @@ class CompositeADABasic1(ADAModel):
         self.para3x = np.round(self.para_a3*datatmp_1p2)
         self.para4x = np.round(self.para_a4*datatmp_1p2)
         #
+        data_m0f = np.zeros((Nx,Ny))  # near surface map - TOF (1st cross)
+        #
+        ########################################
+        # find first crossing for all signals
+        for i1 in range(Nx):
+            data_tm1 = np.fabs(self.inter_data[i1,:,:] - datatmp_1av) #- 128.0 # extract signal vector 1
+            data_tmb = np.argmax(data_tm1 > self.para1x, 1)
+            data_m0f[i1,:] = data_tmb
+            #
+        data_m0f_median = np.median(data_m0f, axis=None)
+        data_m0f_slice = (data_m0f == data_m0f_median)
+        #
+        i0mx = np.sum(data_m0f_slice, axis=None)
+        #
+        if i0mx < (0.12*Nx*Ny):
+            data_m0f_store = np.zeros((i0mx,Nt))
+            #
+            i0 = 0
+            for i1 in range(Nx):
+                for j1 in range(Ny):
+                    if data_m0f_slice[i1,j1]:
+                        datatmp_6 = self.inter_data[i1,j1,:] - datatmp_1av
+                        data_m0f_store[i0,:] = np.abs(hilbert(datatmp_6))
+                        i0 = i0 + 1
+            datatmp_5 = self.inter_data.mean(0)
+            datatmp_6 = datatmp_5.mean(0) - datatmp_1av
+            datatmp_7 = data_m0f_store.mean(0)
+        else:
+            datatmp_5 = self.inter_data.mean(0)
+            datatmp_6 = datatmp_5.mean(0) - datatmp_1av
+            datatmp_7 = np.abs(hilbert(datatmp_6))
+
         ########################################
         # evaluate mean A-scan signal
         data_t0 = np.arange(Nt)  # extract time step vector 1
         t = np.array([np.arange(0, Nt, 1)])
         #
-        datatmp_5 = self.inter_data.mean(0)
-        datatmp_6 = datatmp_5.mean(0) - datatmp_1av
-        datatmp_7 = np.abs(hilbert(datatmp_6))
         ta = np.zeros((2,Nt))
         for idx in range(Nt):
             ta[0,idx] = t[0,idx]
             ta[1,idx] = datatmp_7[idx]
             #
+        datatmp_7_max =  datatmp_7.max()
+        datatmp_7_thr =  self.para_a1*datatmp_7_max
+
         ########################################
         # find width of pulse in time - metrics
-        data_t1b = datatmp_7 > self.para1x
+        data_t1b = datatmp_7 > datatmp_7_thr
         data_tmp = data_t0[data_t1b] # (store first time step that exceeds threshold)
         i_a_fc = data_tmp[0]
         #
-        i_a_pp = datatmp_7.argmax()  # save - TOF map 1
+        data_t1b = datatmp_7[i_a_fc:] < (datatmp_7_thr)
+        data_tmp = data_t0[data_t1b] # (store first time step that is below threshold)
+        i_a_fd = data_tmp[0] + i_a_fc - 1
         #
-        i_a_dp = i_a_pp + np.round(2*(i_a_pp - i_a_fc))
+        i_a_pp = np.argmax(datatmp_7[i_a_fc:i_a_fd])  # save - TOF map 1
         #
-        data_t1b = datatmp_7[i_a_pp:i_a_dp] < self.para1x
-        data_tmp = data_t0[data_t1b] # (store first time step that exceeds threshold)
-        i_a_fd = data_tmp[0] + i_a_pp - 1 # (store first time step that exceeds threshold)
+        #i_a_dp = i_a_pp + np.round(2*(i_a_pp - i_a_fc))
         #
-        self.para_t1 = np.round(1.75*(i_a_fd - i_a_fc + 1))
-        self.para_t2 = np.round(1.1*(i_a_pp - i_a_fc + 1))
+        self.para_t1 = np.round(para_df2*(i_a_fd - i_a_fc + 1))
+        self.para_t2 = np.round(para_df1*(i_a_pp))
         #
         ########################################
         # find bounds for front wall signal
-        data_t1 = np.fabs(datatmp_6 - datatmp_1av)
-        data_t1b = data_t1 > self.para1x
-        data_tmp = data_t0[data_t1b] # (store first time step that exceeds threshold)
-        i_a_zc = data_tmp[0]
-        i_a_avg = i_a_zc + self.para_t1
+        #data_t1 = np.fabs(datatmp_6 - datatmp_1av)
+        #data_t1b = data_t1 > datatmp_7_thr
+        #if data_t1b.size:
+        #    data_tmp = data_t0[data_t1b] # (store first time step that exceeds threshold)
+        #    i_a_zc = data_tmp[0]
+        #else:
+        #    i_a_zc = 0
+        #i_a_avg = i_a_zc + self.para_t1
         #
         ########################################
         #
@@ -254,16 +336,18 @@ class CompositeADABasic1(ADAModel):
             for j1 in range(Ny):
                 data_t1 = np.fabs(self.inter_data[i1,j1,:] - datatmp_1av) #- 128.0 # extract signal vector 1
                 #data_t1 = data_tx.astype('f') - 128.0
+                i_a_avg = data_m0f[i1,j1] + self.para_t1
                 data_t1b = data_t1[:i_a_avg] > self.para1x # evaluate threshold vector 1
                 data_tmp = data_t1[data_t1b] # (store first amplitude signal that exceeds threshold)
                 if data_tmp.size:
                     #data_m1a[i1,j1] = data_tmp[0] # save - amplitude map 1
-                    data_m1a[i1,j1] = data_t1.max() # save - amplitude map 2
-                    data_m1t[i1,j1] = data_t1.argmax()  # save - TOF map 1
-                    #
                     data_tmp = data_t0[data_t1b] # (store first time step that exceeds threshold)
                     i_a = data_tmp[0]
                     data_m1f[i1,j1] = 1.0*i_a  # save - TOF map 1
+                    #
+                    data_t1s = data_t1[:i_a_avg]
+                    data_m1a[i1,j1] = data_t1s.max() # save - amplitude map 2
+                    data_m1t[i1,j1] = data_t1s.argmax()  # save - TOF map 1
                     #
                     data_t2 = data_t1[(i_a+self.para_t1):] # extract vector 2 - thickness and backwall signals
                     if data_t2.size:
@@ -276,6 +360,50 @@ class CompositeADABasic1(ADAModel):
                         if data_tmp.size:
                             i_b = data_tmp[0]
                             data_m2t[i1,j1] = 1.0*i_b # save - amplitude map 1
+
+        # check for missing data points with data at all neighbors
+        data_m0f_store = np.zeros((4,Nt))
+        for i1 in xrange(1,Nx-1):
+            for j1 in  xrange(1,Ny-1):
+                if data_m1a[i1,j1] <= self.para1x:
+                    if ((data_m1a[i1-1,j1]>self.para1x) and (data_m1a[i1+1,j1]>self.para1x)):
+                        if ((data_m1a[i1,j1-1]>self.para1x) and (data_m1a[i1,j1+1]>self.para1x)):
+                            data_m0f_store[0,:] = self.inter_data[i1-1,j1,:]
+                            data_m0f_store[1,:] = self.inter_data[i1+1,j1,:]
+                            data_m0f_store[2,:] = self.inter_data[i1,j1-1,:]
+                            data_m0f_store[3,:] = self.inter_data[i1,j1+1,:]
+                            self.inter_data[i1,j1,:] = data_m0f_store.mean(0)
+                            #
+                            data_tm1 = np.fabs(data_m0f_store.mean(0) - datatmp_1av) #- 128.0 # extract signal vector 1
+                            data_tmb = np.argmax(data_tm1 > self.para1x)
+                            data_m0f[i1,j1] = data_tmb
+                            #
+                            # recalculate for previously missing data point
+                            data_t1 = np.fabs(self.inter_data[i1,j1,:] - datatmp_1av) #- 128.0 # extract signal vector 1
+                            #data_t1 = data_tx.astype('f') - 128.0
+                            i_a_avg = data_m0f[i1,j1] + self.para_t1
+                            data_t1b = data_t1[:i_a_avg] > self.para1x # evaluate threshold vector 1
+                            data_tmp = data_t1[data_t1b] # (store first amplitude signal that exceeds threshold)
+                            if data_tmp.size:
+                                #data_m1a[i1,j1] = data_tmp[0] # save - amplitude map 1
+                                data_m1a[i1,j1] = data_t1.max() # save - amplitude map 2
+                                data_m1t[i1,j1] = data_t1.argmax()  # save - TOF map 1
+                                #
+                                data_tmp = data_t0[data_t1b] # (store first time step that exceeds threshold)
+                                i_a = data_tmp[0]
+                                data_m1f[i1,j1] = 1.0*i_a  # save - TOF map 1
+                                #
+                                data_t2 = data_t1[(i_a+self.para_t1):] # extract vector 2 - thickness and backwall signals
+                                if data_t2.size:
+                                    data_m2a[i1,j1] = data_t2.max() # save - amplitude map 2
+                                    data_m2b[i1,j1] = data_t2.argmax() # save - amplitude map 2
+                                    #
+                                    data_t02 = data_t0[(i_a+self.para_t1):] # extract time step vector 2
+                                    data_t2b = data_t2 > self.para2x # evaluate threshold vector 2
+                                    data_tmp = data_t02[data_t2b]
+                                    if data_tmp.size:
+                                        i_b = data_tmp[0]
+                                        data_m2t[i1,j1] = 1.0*i_b # save - amplitude map 1
 
         # through thickness threshold
         data1 = (data_m1a > self.para1x)
@@ -450,6 +578,7 @@ class CompositeADABasic1(ADAModel):
         model_res_outputpara.append(str(Vppn_tt_median))
         model_res_outputpara.append(str(Vppn_bw_median))
         model_res_outputpara.append(str(TOF_bw_median))
+        model_res_outputpara.append(str(self.nb))
 
         # Store in res_outputdata
         model_res_outputdata = []
@@ -462,7 +591,7 @@ class CompositeADABasic1(ADAModel):
         model_res_outputdata.append(data_m1t)
         model_res_outputdata.append(data_f1)
         model_res_outputdata.append(data_f2)
-        model_res_outputdata.append(data_f3)
+        model_res_outputdata.append(data_m0f)  #change from data_f3
         model_res_outputdata.append(data_m4t)
         model_res_outputdata.append(data_m5a)
         model_res_outputdata.append(data_m6a)
@@ -473,6 +602,39 @@ class CompositeADABasic1(ADAModel):
         for item in model_res_outputpara:
             thefile.write("%s\n" % item)
         #np.savetxt(filename_2D_long, model_res_outputpara, delimiter=",")
+        thefile.close()
+        #
+        filename_2D_long = 'validation_study.met'
+        thefile = open(filename_2D_long, 'a')
+        item = ",".join(model_res_outputpara)
+        thefile.write("%s\n" % item)
+        thefile.close()
+        #
+        filename_2D_long = 'validation_study.ind'
+        thefile = open(filename_2D_long, 'a')
+        #
+        for idx1 in range(Nr):
+            #
+            model_res_outputind = []
+            model_res_outputind.append(filename_2D)
+            model_res_outputind.append(str(idx1))
+            #
+            model_res_outputind.append(str(model_data[idx1,0]))
+            model_res_outputind.append(str(model_data[idx1,1]))
+            model_res_outputind.append(str(model_data[idx1,2]))
+            model_res_outputind.append(str(model_data[idx1,3]))
+            model_res_outputind.append(str(model_data[idx1,4]))
+            model_res_outputind.append(str(model_data[idx1,5]))
+            model_res_outputind.append(str(model_data[idx1,6]))
+            model_res_outputind.append(str(model_data[idx1,7]))
+            model_res_outputind.append(str(model_data[idx1,8]))
+            model_res_outputind.append(str(model_data[idx1,9]))
+            model_res_outputind.append(str(model_data[idx1,10]))
+            model_res_outputind.append(str(model_data[idx1,11]))
+            #
+            item = ",".join(model_res_outputind)
+            thefile.write("%s\n" % item)
+        thefile.close()
         #
         filename_2D_long = filename_2D + '.ind'
         np.savetxt(filename_2D_long, model_data, delimiter=",")
@@ -683,15 +845,39 @@ class CompositeADABasic1(ADAModel):
 
     def load_csc(self):
         #"""loads data from selected .csc. file"""
-        datafiledlg = self.filenm
-
+        #datafiledlg = self.filenm
         #"""Code to Read .RF File into NDArray"""
         #fidin=open(datafiledlg,"rb")
         #
-        data = utwin.get_waveformdata(datafiledlg)
-        self.inter_data = data
+        raw_data = dataio.get_utwin_data(self.filenm)
+        for dataset in raw_data:
+            if dataset == 'waveform':
+                self.inter_data = raw_data[dataset][0]
+
         #
-        fidin.close()
+        #self.axis_x_resolution = tst.axes[0].resolution
+        #self.axis_x_sample_points = tst.axes[0].sample_points
+        #self.axis_x_units = tst.axes[0].units
+        #
+        scan_prop = dataio.get_utwin_prop(self.filenm)
+        for field in scan_prop:
+            if field == 'n_height':
+                self.axis_x_sample_points = scan_prop[field]
+            if field == 'cs_index_resolution':
+                self.axis_x_resolution = scan_prop[field]
+            if field == 'n_width':
+                self.axis_y_sample_points = scan_prop[field]
+            if field == 'cs_scan_resolution':
+                self.axis_y_resolution = scan_prop[field]
+            if field == 'rf_dt':
+                self.axis_time_resolution = scan_prop[field]
+        #
+        self.axis_x_units = "in"
+        self.axis_y_units = "in"
+        self.axis_time_units = "us"
+        #
+        self.axis_y = None
+        self.axis_time = None
 
     def on_ada_1(self):
         # 1) Get threshold and apply to amplitude data
