@@ -297,10 +297,11 @@ class ADAWindowController(object):
                     self.view.axes0 = self.view.figure0.add_subplot(111, navigate=True)
                     cax = self.view.axes0.imshow(model.res_outputdata[idx])
                     #
-                    Nr1, Nc1 = model._data.shape
+                    Nr1 = len(model._data)
+                    #Nr1, Nc1 = model._data.shape
                     for idx in range(Nr1):
-                        xc = model._data[idx,1]
-                        yc = model._data[idx,2]
+                        xc = model._data[idx][1]
+                        yc = model._data[idx][2]
                         tc = str(idx+1)
                         self.view.axes0.text(xc,yc,tc)
                     #
@@ -370,10 +371,11 @@ class ADAWindowController(object):
                     self.view.axes0 = self.view.figure0.add_subplot(111, navigate=True)
                     cax = self.view.axes0.imshow(model.res_outputdata[idx], vmin = i1, vmax = i2)
                     #
-                    Nr1, Nc1 = model._data.shape
+                    Nr1 = len(model._data)
+                    #Nr1, Nc1 = model._data.shape
                     for idx in range(Nr1):
-                        xc = model._data[idx,1]
-                        yc = model._data[idx,2]
+                        xc = model._data[idx][1]
+                        yc = model._data[idx][2]
                         tc = str(idx+1)
                         self.view.axes0.text(xc,yc,tc)
                         #
@@ -930,20 +932,25 @@ class ADAWindowController(object):
         spreadsheet_ctrl.SetNumberRows(0)
         spreadsheet_ctrl.SetNumberCols(0)
         rownum = 0
-        if data_array.ndim == 2:
-            num_rows = data_array.shape[0]
+        num_rows = len(data_array)
+        #num_cols = len(data_array[0])
+        if num_rows > 1:
+            #num_rows = data_array.shape[0]
+            num_rows = len(data_array)
             for row in range(num_rows):
                 spreadsheet_ctrl.AppendRows(1)
-                numcols = data_array[row].size
+                #numcols = data_array[row].size
+                numcols = len(data_array[row])
                 if spreadsheet_ctrl.GetNumberCols() < numcols:
                     spreadsheet_ctrl.SetNumberCols(numcols)
                 colnum = 0
                 for cell in data_array[row]:
-                    spreadsheet_ctrl.SetCellValue(rownum, colnum, str(cell))
-                    spreadsheet_ctrl.SetCellValue(rownum, colnum, "{0:.2f}".format(cell))
+                    spreadsheet_ctrl.SetCellValue(rownum, colnum, cell)
+                    #spreadsheet_ctrl.SetCellValue(rownum, colnum, "{0:.2f}".format(cell))
                     colnum += 1
                 rownum += 1
-        elif data_array.ndim == 1:
+        #elif data_array.ndim == 1:
+        else:
             spreadsheet_ctrl.SetNumberCols(1)
             for el in data_array:
                 spreadsheet_ctrl.AppendRows(1)

@@ -683,7 +683,27 @@ class CompositeADABasic1(ADAModel):
         # To display tabular data after execution, set self._data to your output data
         # ADA Toolkit will load the NumPy array and display it automatically.
         # You can safely ignore this if you don't need to display data.
-        self._data = model_data
+        #model_data_str = ["%.2f" % x for x in model_data.reshape(model_data.size)]
+        #model_data_str = model_data_str.reshape(model_data.shape)
+        model_data_str = model_data.tolist()
+        for idx1 in range(Nr):
+            idx = model_data_str[idx1][0]
+            if idx == 0:
+                model_data_str[idx1][0] = "IND"
+            elif idx == 1:
+                model_data_str[idx1][0] = "TT+"
+            elif idx == 2:
+                model_data_str[idx1][0] = "BW-"
+            elif idx == 3:
+                model_data_str[idx1][0] = "TT+,BW-"
+            for idx2 in range(1,12):
+                #tmp_val = str(model_data_str[idx1][idx2])
+                tmp_val = "{0:.3f}".format(model_data_str[idx1][idx2])
+                model_data_str[idx1][idx2] = tmp_val
+
+        #model_data_str = map(str,model_data)
+        self._data = model_data_str
+        #self._data = model_data
         self.res_outputdata = model_res_outputdata
         self.res_outputpara = model_res_outputpara
         self.res_inddata = model_res_inddata
@@ -975,10 +995,10 @@ class CompositeADABasic1(ADAModel):
         cax = axes_hdl.imshow(X)
         fig_hdl.colorbar(cax)
         #
-        Nr1, Nc1 = self._data.shape
+        Nr1 = len(self._data)
         for idx in range(Nr1):
-            xc = self._data[idx,1]
-            yc = self._data[idx,2]
+            xc = self._data[idx][1]
+            yc = self._data[idx][2]
             tc = str(idx+1)
             axes_hdl.text(xc,yc,tc)
             #
