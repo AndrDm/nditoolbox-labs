@@ -292,10 +292,13 @@ class ADAWindowController(object):
                     #xlims = self.view.axes0.xlims
                     #ylims = self.view.axes0.ylims
                     #
+                    x_len = float(model.res_outputpara[2])
+                    y_len = float(model.res_outputpara[4])
+                    #
                     self.view.axes0.clear()
                     self.view.figure0.clear()  #in case there are extra axes like colorbars
                     self.view.axes0 = self.view.figure0.add_subplot(111, navigate=True)
-                    cax = self.view.axes0.imshow(model.res_outputdata[idx])
+                    cax = self.view.axes0.imshow(model.res_outputdata[idx],origin='lower',extent=[0,x_len,0,y_len],interpolation='nearest')
                     #
                     Nr1 = len(model._data)
                     #Nr1, Nc1 = model._data.shape
@@ -303,11 +306,18 @@ class ADAWindowController(object):
                         xc = model._data[idx][1]
                         yc = model._data[idx][2]
                         tc = str(idx+1)
-                        self.view.axes0.text(xc,yc,tc)
+                        #self.view.axes0.text(xc,yc,tc)
+                        self.view.axes0.text(xc,yc,tc,weight='bold')
                     #
                     self.view.colorbar = self.view.figure0.colorbar(cax)
-                    self.view.axes0.set_xlabel('x')
-                    self.view.axes0.set_ylabel('y')
+                    #
+                    for ikey, ivalues in sorted(model.indmetrics.iteritems()):
+                        if ivalues['index'] == '1':
+                            xlbl = ivalues['unit']
+                        elif ivalues['index'] == '2':
+                            ylbl = ivalues['unit']
+                    self.view.axes0.set_xlabel('x, ' + xlbl)
+                    self.view.axes0.set_ylabel('y, ' + ylbl)
                     self.view.plot0_panel.Show()
                     #
                     #self.view.axes0.xlims = self.view.axes0.get_xlim()
@@ -315,10 +325,12 @@ class ADAWindowController(object):
                     #
                     xsum = xlims[0]+xlims[1]
                     if xsum > 1:
-                        if ylims[0] > ylims[1]:
-                            self.view.axes0.set_xlim(xlims)
-                            self.view.axes0.set_ylim(ylims)
-
+                        #if ylims[0] > ylims[1]:
+                        xsum = xlims[0]+xlims[1]
+                        if xlims[1] <= x_len:
+                            if ylims[1] <= y_len:
+                                self.view.axes0.set_xlim(xlims)
+                                self.view.axes0.set_ylim(ylims)
                     #
                     self.refresh_plot0()
                     #
@@ -364,12 +376,15 @@ class ADAWindowController(object):
                     self.view.axes0 = self.view.figure0.add_subplot(111, navigate=True)
                     #
                     a0 = self.view.plot0_txt0.GetValue()
-                    i1 = int(a0)
+                    i1 = float(a0)
                     a1 = self.view.plot0_txt1.GetValue()
-                    i2 = int(a1)
+                    i2 = float(a1)
+                    #
+                    x_len = float(model.res_outputpara[2])
+                    y_len = float(model.res_outputpara[4])
                     #
                     self.view.axes0 = self.view.figure0.add_subplot(111, navigate=True)
-                    cax = self.view.axes0.imshow(model.res_outputdata[idx], vmin = i1, vmax = i2)
+                    cax = self.view.axes0.imshow(model.res_outputdata[idx], vmin = i1, vmax = i2, origin='lower',extent=[0,x_len,0,y_len],interpolation='nearest')
                     #
                     Nr1 = len(model._data)
                     #Nr1, Nc1 = model._data.shape
@@ -377,11 +392,18 @@ class ADAWindowController(object):
                         xc = model._data[idx][1]
                         yc = model._data[idx][2]
                         tc = str(idx+1)
-                        self.view.axes0.text(xc,yc,tc)
+                        self.view.axes0.text(xc,yc,tc,weight='bold')
                         #
                     self.view.colorbar = self.view.figure0.colorbar(cax)
+                    #
+                    for ikey, ivalues in sorted(model.indmetrics.iteritems()):
+                        if ivalues['index'] == '1':
+                            xlbl = ivalues['unit']
+                        elif ivalues['index'] == '2':
+                            ylbl = ivalues['unit']
                     self.view.axes0.set_xlabel('x')
                     self.view.axes0.set_ylabel('y')
+                    #
                     self.view.plot0_panel.Show()
                     #
                     xsum = xlims[0]+xlims[1]
@@ -456,7 +478,7 @@ class ADAWindowController(object):
                     self.view.axes1.clear()
                     self.view.figure1.clear()  #in case there are extra axes like colorbars
                     self.view.axes1 = self.view.figure1.add_subplot(111, navigate=True)
-                    cax = self.view.axes1.imshow(model.res_inddata[idx][i_row])
+                    cax = self.view.axes1.imshow(model.res_inddata[idx][i_row],origin='lower',interpolation='nearest')
                     self.view.colorbar = self.view.figure1.colorbar(cax)
                     self.view.axes1.set_xlabel('x')
                     self.view.axes1.set_ylabel('y')
@@ -492,7 +514,7 @@ class ADAWindowController(object):
                     self.view.axes2.clear()
                     self.view.figure2.clear()  #in case there are extra axes like colorbars
                     self.view.axes2 = self.view.figure2.add_subplot(111, navigate=True)
-                    cax = self.view.axes2.imshow(model.res_inddata[idx][i_row])
+                    cax = self.view.axes2.imshow(model.res_inddata[idx][i_row],origin='lower',interpolation='nearest')
                     self.view.colorbar = self.view.figure2.colorbar(cax)
                     self.view.axes2.set_xlabel('x')
                     self.view.axes2.set_ylabel('y')
@@ -573,7 +595,7 @@ class ADAWindowController(object):
                 self.view.axes0.clear()
                 self.view.figure0.clear()  #in case there are extra axes like colorbars
                 self.view.axes0 = self.view.figure0.add_subplot(111, navigate=True)
-                cax = self.view.axes0.imshow(self.res_outputdata[idx])
+                cax = self.view.axes0.imshow(self.res_outputdata[idx],origin='lower',interpolation='nearest')
                 self.view.colorbar = self.view.figure0.colorbar(cax)
                 self.view.axes0.set_xlabel('x')
                 self.view.axes0.set_ylabel('y')
@@ -805,6 +827,7 @@ class ADAWindowController(object):
             for ikey, ivalues in sorted(model.inputdata.iteritems()):
                 if ivalues['index'] == '1':
                     ivalues['value'] = '1'
+            #model_instance.run() # Call the model's run() method directly instead of spawning a new thread return #
             model_thd = workerthread.WorkerThread(exception_queue=exception_queue,
                                               target=model_instance.run)
             model_thd.start()
@@ -928,13 +951,36 @@ class ADAWindowController(object):
     def populate_spreadsheet(self, spreadsheet_ctrl, data_array):
         """Clears the specified wxSpreadSheet instance and fills with
         the contents of the NumPy data_array."""
+        model = self.view.modeltree.get_model()
+        names_idx = []
+        names_bld = []
+        for indmetricsname, indmetrics2 in sorted(model.indcalls.iteritems()):
+            names_bld.append(indmetrics2['bold'])
+            names_idx.append(indmetrics2['index'])
+        indcall_bld = [' ']*len(names_idx)
+        for idx in range(len(names_idx)):
+            idx2 = int(names_idx[idx])-1
+            indcall_bld[idx2] = names_bld[idx]
+        #
+        names_bld = []
+        names_idx = []
+        for indmetricsname, indmetrics2 in sorted(model.indmetrics.iteritems()):
+            names_bld.append(indmetrics2['bold'])
+            names_idx.append(indmetrics2['index'])
+        indmetric_bld = [' ']*len(names_idx)
+        for idx in range(len(names_idx)):
+            idx2 = int(names_idx[idx])-1
+            indmetric_bld[idx2] = names_bld[idx]
+        #
+        self.indcombo_bld = indcall_bld + indmetric_bld
+        #
         spreadsheet_ctrl.ClearGrid()
         spreadsheet_ctrl.SetNumberRows(0)
         spreadsheet_ctrl.SetNumberCols(0)
         rownum = 0
         num_rows = len(data_array)
         #num_cols = len(data_array[0])
-        if num_rows > 1:
+        if num_rows >= 1:
             #num_rows = data_array.shape[0]
             num_rows = len(data_array)
             for row in range(num_rows):
@@ -946,6 +992,8 @@ class ADAWindowController(object):
                 colnum = 0
                 for cell in data_array[row]:
                     spreadsheet_ctrl.SetCellValue(rownum, colnum, cell)
+                    if int(self.indcombo_bld[colnum]) > 0:
+                        spreadsheet_ctrl.SetCellFont(rownum, colnum, wx.Font(10, wx.NORMAL, wx.NORMAL, wx.BOLD))
                     #spreadsheet_ctrl.SetCellValue(rownum, colnum, "{0:.2f}".format(cell))
                     colnum += 1
                 rownum += 1
@@ -963,36 +1011,57 @@ class ADAWindowController(object):
         model = self.view.modeltree.get_model()
         names_txt = []
         names_idx = []
+        names_col = []
+        names_bld = []
         names_des = []
         for indmetricsname, indmetrics2 in sorted(model.indcalls.iteritems()):
             names_txt.append(indmetrics2['name'])
+            names_col.append(indmetrics2['colsize'])
+            names_bld.append(indmetrics2['bold'])
             names_idx.append(indmetrics2['index'])
             names_des.append(indmetrics2['description'])
         indcall_txt = [' ']*len(names_idx)
         indcall_des = [' ']*len(names_idx)
+        indcall_col = [' ']*len(names_idx)
+        indcall_bld = [' ']*len(names_idx)
         for idx in range(len(names_idx)):
             idx2 = int(names_idx[idx])-1
             indcall_txt[idx2] = names_txt[idx]
             indcall_des[idx2] = names_des[idx]
+            indcall_col[idx2] = names_col[idx]
+            indcall_bld[idx2] = names_bld[idx]
         #
         names_txt = []
+        names_unt = []
+        names_col = []
+        names_bld = []
         names_idx = []
         names_des = []
         for indmetricsname, indmetrics2 in sorted(model.indmetrics.iteritems()):
             names_txt.append(indmetrics2['name'])
+            names_unt.append(indmetrics2['unit'])
+            names_col.append(indmetrics2['colsize'])
+            names_bld.append(indmetrics2['bold'])
             names_idx.append(indmetrics2['index'])
             names_des.append(indmetrics2['description'])
         indmetric_txt = [' ']*len(names_idx)
         indmetric_des = [' ']*len(names_idx)
+        indmetric_col = [' ']*len(names_idx)
+        indmetric_bld = [' ']*len(names_idx)
         for idx in range(len(names_idx)):
             idx2 = int(names_idx[idx])-1
-            indmetric_txt[idx2] = names_txt[idx]
+            indmetric_txt[idx2] = names_txt[idx] +", "+names_unt[idx]
             indmetric_des[idx2] = names_des[idx]
+            indmetric_col[idx2] = names_col[idx]
+            indmetric_bld[idx2] = names_bld[idx]
         #
         self.indcombo_txt = indcall_txt + indmetric_txt
         self.indcombo_des = indcall_des + indmetric_des
+        self.indcombo_col = indcall_col + indmetric_col
+        self.indcombo_bld = indcall_bld + indmetric_bld
         for row in range(len(self.indcombo_txt)):
             spreadsheet_ctrl.SetColLabelValue(row,self.indcombo_txt[row])
+            spreadsheet_ctrl.SetColSize(row,int(self.indcombo_col[row]))
 
     def populate_outputparaspreadsheet(self):
         #

@@ -5,6 +5,7 @@ import numpy as np
 from scipy.ndimage.filters import minimum_filter
 from scipy.ndimage.filters import maximum_filter
 from scipy.ndimage.filters import median_filter
+from scipy.signal import convolve2d
 from scipy.signal import hilbert
 import wx
 
@@ -43,28 +44,10 @@ class CompositeADABasic1(ADAModel):
         """Executes the ADA Model"""
         
         # Example busy work
-        print("Input Data Configuration:")
-        for key, value in self.inputdata.iteritems():
-            print("\t{0}={1}".format(key, value))
-        print("\nOutput Data Configuration:")
-        for key, value in self.outputdata.iteritems():
-            print("\t{0}={1}".format(key, value))
-        print("\nIndication Calls Configuration:")
-        for key, value in self.indcalls.iteritems():
-            print("\t{0}={1}".format(key, value))
-        print("\nIndication Metrics Configuration:")
-        for key, value in self.indmetrics.iteritems():
-            print("\t{0}={1}".format(key, value))
-        print("\nIndication Data Configuration:")
-        for key, value in self.inddata.iteritems():
-            print("\t{0}={1}".format(key, value))
-        print("\nParameters Configuration:")
-        for key, value in self.params.iteritems():
-            print("\t{0}={1}".format(key, value))
-        print("\nSettings Configuration:")
-        for key, value in self.settings.iteritems():
-            print("\t{0}={1}".format(key, value))
-        print("\n")
+        #print("Input Data Configuration:")
+        #for key, value in self.inputdata.iteritems():
+        #    print("\t{0}={1}".format(key, value))
+        #print("\n")
 
         ############################################################
         names_nam = []
@@ -161,6 +144,15 @@ class CompositeADABasic1(ADAModel):
                 para_tp2 = float(ivalues['value'])
             elif ivalues['index'] == '18':
                 para_tp3 = float(ivalues['value'])
+            elif ivalues['index'] == '19':
+                para_dr1 = float(ivalues['value'])
+            elif ivalues['index'] == '20':
+                para_thpp = float(ivalues['value'])
+
+        ############################################################################
+        for ikey, ivalues in sorted(self.settings.iteritems()):
+            if ivalues['index'] == '5':
+                self.para_dimon = float(ivalues['value'])
 
         ############################################################################
         #ext = ".rf"
@@ -176,6 +168,8 @@ class CompositeADABasic1(ADAModel):
             self.para_c1 = 9 # 9 pixels in total area
             self.para_c2 = 3 # 3 pixels wide
             self.para_c3 = 3 # 3 pixels long
+            #
+            self.para_r1 = int(0.5*para_dr1/self.axis_x_resolution)
         #
         elif ".sdt" in filepath:
             self.load_sdt2()
@@ -189,6 +183,9 @@ class CompositeADABasic1(ADAModel):
             self.para_c1 = int(para_da1)  # 9 pixels in total area (= 4 by OpenCV math)
             self.para_c2 = int(para_dx1)  # 3 pixels wide
             self.para_c3 = int(para_dy1)  # 3 pixels long
+            #
+            # TO FIX:  CHECK FOR UNIT TYPE AND ADD APPROPRIATE FACTOR
+            self.para_r1 = int(0.5*para_dr1*25.4/self.axis_x_resolution)
         #
         elif ".csc" in filepath:
             self.load_csc()
@@ -209,10 +206,17 @@ class CompositeADABasic1(ADAModel):
             self.para_c2 = int(para_dx1)  # 3 pixels wide
             self.para_c3 = int(para_dy1)  # 3 pixels long
             #
+            # TO FIX:  CHECK FOR UNIT TYPE AND ADD APPROPRIATE FACTOR
+            self.para_r1 = int(0.5*para_dr1/self.axis_x_resolution)
+
         self.para_e0 = int(para_ew1) # = 3, radii associated with length criteria from edge to acreage portion of panels (1.2")
         self.para_e0a = int(round(0.707*self.para_e0)) # radii associated with length criteria from edge to acreage portion of panels (1.2")
         self.para_e1 = int(para_ew2) # = 15, radii associated with length criteria from edge to acreage portion of panels (1.2")
-        self.para_e2 = int(round(0.707*self.para_e1)) # radii associated with length criteria from edge to acreage portion of panels (1.2")
+        self.para_e2 = int(round(0.707*self.para_e1)+1) # radii associated with length criteria from edge to acreage portion of panels (1.2")
+        #
+        self.para_r2 = 2*self.para_r1 + 1
+        self.para_r3 = self.para_r2*self.para_r2
+        self.para_r4 = int(para_thpp*self.para_r3)
         #
         Nx, Ny, Nt = self.inter_data.shape
         #
@@ -487,19 +491,327 @@ class CompositeADABasic1(ADAModel):
         TOF_bw_median = np.ma.median(data_m4m)
         #
         # through backwall drop threshold
-        #data1 = (data_m4a < self.para4x)
-        data1 = (data_m6a < self.para_a4) * (data_m5a >= 2)
+        #data1 = (data_m4a < self.para4x)  # SWITCH TO para_a2
+        data1 = (data_m6a < self.para_a2) * (data_m5a >= 2)
         data_f1 = data1.astype('f')
+        #
+        ####################################################
+        # NEW 1A - CALL SEPARATE ADA BLOB EVALUATION FOR BW MAP (WITH TRUE AREA CALCULATION)
+        #contour_list = []
+        #N_list = 0
+        contour_BW = self.on_ada_findblobs(data_f1)
+        #
+        ####################################################
+        # NEW 1B - MERGE BLOB EVALUATION FOR BW MAP (COMBINE TRUE AREA CALCULATION)
+        NB_BW = len(contour_BW)
+        status_BW = np.zeros((NB_BW,1))
+        #
+        if NB_BW > 1:
+            # 1) evaluate neighboring contours
+            for i,cnt1 in enumerate(contour_BW):
+                x = i
+                if i != NB_BW-1:
+                    for j,cnt2 in enumerate(contour_BW[i+1:]):
+                        x = x+1
+                        dist = self.find_if_close(cnt1,cnt2, self.para_r1)
+                        if dist == True:
+                            val = min(status_BW[i],status_BW[x])
+                            status_BW[x] = status_BW[i] = val
+                        else:
+                            if status_BW[x]==status_BW[i]:
+                                status_BW[x] = i+1
 
+            #
+            # 2) unify neighboring contours
+            unified_BW = []
+            maximum = int(status_BW.max())+1
+            for i in xrange(maximum):
+                pos = np.where(status_BW==i)[0]
+                if pos.size != 0:
+                    cont = np.vstack(contour_BW[i] for i in pos)
+                    #hull = cv2.convexHull(cont)
+                    unified_BW.append(cont)
+            #
+            # 3) draw contours to data_f3 to evaluate area
+            data_f3 = data1.astype('f')
+            data_f5 = np.zeros((Nx,Ny))
+            #
+            i1 = 0
+            for contour in contour_BW:
+                #cv2.drawContours(data_f3,[contour],0,i1+2,-1)
+                cv2.drawContours(data_f3,[contour],0,status_BW[i1]+2,-1)
+                i1 = i1 + 1
+            #
+            # 4) sum matched groups of pixels into same unified contours (accurate area evaluation!)
+            i1 = 0
+            area_pixels_bw = []
+            for contour in unified_BW:
+                #cv2.drawContours(data_f3,[contour],0,i1+2,-1)
+                cnt = np.sum(data_f3==i1+2)
+                area_pixels_bw.append(cnt)
+                i1 = i1 + 1
+        else:
+            unified_BW = []
+            data_f3 = data1.astype('f')
+            #
+            i1 = 0
+            area_pixels_bw = []
+            for contour in contour_BW:
+                unified_BW.append(contour)
+                cv2.drawContours(data_f3,[contour],0,i1+2,-1)
+                cnt = np.sum(data_f3==i1+2)
+                area_pixels_bw.append(cnt)
+                i1 = i1 + 1
+
+        ####################################################
         # through thickness threshold
-        data1 = (data_m3a > self.para_a3)
-        data_f2 = data1.astype('f')
+        data2 = (data_m3a > self.para_a3)
+        data_f2 = data2.astype('f')
+        #
+        ####################################################
+        # NEW 2A - CALL SEPARATE ADA BLOB EVALUATION FOR BW MAP (TRUE AREA CALCULATION)
+        #contour_list = []
+        #N_list = 0
+        contour_TT = self.on_ada_findblobs(data_f2)
+        #
+        ####################################################
+        # NEW 2B - MERGE BLOB EVALUATION FOR BW MAP (COMBINE TRUE AREA CALCULATION)
+        NB_TT = len(contour_TT)
+        status_TT = np.zeros((NB_TT,1))
+        #
+        if NB_TT > 1:
+            #
+            # 1) evaluate neighboring contours
+            for i,cnt1 in enumerate(contour_TT):
+                x = i
+                if i != NB_TT-1:
+                    for j,cnt2 in enumerate(contour_TT[i+1:]):
+                        x = x+1
+                        dist = self.find_if_close(cnt1,cnt2, self.para_r1)
+                        if dist == True:
+                            val = min(status_TT[i],status_TT[x])
+                            status_TT[x] = status_TT[i] = val
+                        else:
+                            if status_TT[x]==status_TT[i]:
+                                status_TT[x] = i+1
 
+            #
+            # 2) unify neighboring contours
+            unified_TT = []
+            maximum = int(status_TT.max())+1
+            for i in xrange(maximum):
+                pos = np.where(status_TT==i)[0]
+                if pos.size != 0:
+                    cont = np.vstack(contour_TT[i] for i in pos)
+                    #hull = cv2.convexHull(cont)
+                    unified_TT.append(cont)
+            #
+            # 3) draw contours to data_f4 to evaluate area
+            data_f4 = data2.astype('f')
+            #
+            i1 = 0
+            for contour in contour_TT:
+                #cv2.drawContours(data_f3,[contour],0,i1+2,-1)
+                cv2.drawContours(data_f4,[contour],0,status_TT[i1]+2,-1)
+                i1 = i1 + 1
+            #
+            # 4) sum matched groups of pixels into same unified contours (accurate area evaluation!)
+            i1 = 0
+            area_pixels_tt = []
+            for contour in unified_TT:
+                #cv2.drawContours(data_f3,[contour],0,i1+2,-1)
+                cnt = np.sum(data_f4==i1+2)
+                area_pixels_tt.append(cnt)
+                i1 = i1 + 1
+        else:
+            unified_TT = []
+            data_f4 = data2.astype('f')
+            #
+            i1 = 0
+            area_pixels_tt = []
+            for contour in contour_TT:
+                unified_TT.append(contour)
+                cv2.drawContours(data_f4,[contour],0,i1+2,-1)
+                cnt = np.sum(data_f4==i1+2)
+                area_pixels_tt.append(cnt)
+                i1 = i1 + 1
+        #
+        ####################################################
+        # NEW 3A - search through grid for percent of pixels above threshold (porosity) - include original regions
+        msk = np.ones((self.para_r2,self.para_r2))
+        #
+        data_f5t = convolve2d(data_f1,msk,mode = 'same')
+        data_f5b = (data_f5t > self.para_r4)
+        data_f5 = (data_f5t / self.para_r3)*data_f5b
+        #
+        #if ((Nx>self.para_r2)and(Ny>self.para_r2))
+        #    for i1 in range(self.para_r2,Nx-self.para_r2):
+        #        for ij in range(self.para_r2,Ny-self.para_r2):
+
+        ####################################################
+        # NEW 3B - search through grid for percent of pixels above threshold (porosity) AND remove called BW regions
+        msk = np.ones((self.para_r2,self.para_r2))
+        #
+        data_f13b = (data_f3 == 1)
+        data_f13 = data_f13b.astype('f')
+        #
+        data_f6t = convolve2d(data_f13,msk,mode = 'same')
+        data3 = (data_f6t > self.para_r4)
+        data_f6 = data3.astype('f')
+
+        ####################################################
+        # NEW 3C - CALL SEPARATE ADA BLOB EVALUATION FOR BW MAP (TRUE AREA CALCULATION)
+        #contour_list = []
+        #N_list = 0
+        contour_PY = self.on_ada_findblobs(data_f6)
+        #
+        ####################################################
+        # NEW 3D - MERGE BLOB EVALUATION FOR PY MAP (COMBINE TRUE AREA CALCULATION)
+        NB_PY = len(contour_PY)
+        status_PY = np.zeros((NB_PY,1))
+        #
+        if NB_PY > 1:
+            #
+            # 1) evaluate neighboring contours
+            for i,cnt1 in enumerate(contour_PY):
+                x = i
+                if i != NB_PY-1:
+                    for j,cnt2 in enumerate(contour_PY[i+1:]):
+                        x = x+1
+                        dist = self.find_if_close(cnt1,cnt2, self.para_r2)
+                        if dist == True:
+                            val = min(status_PY[i],status_PY[x])
+                            status_PY[x] = status_PY[i] = val
+                        else:
+                            if status_PY[x]==status_PY[i]:
+                                status_PY[x] = i+1
+
+            unified_PY = []
+            maximum = int(status_PY.max())+1
+            for i in xrange(maximum):
+                pos = np.where(status_PY==i)[0]
+                if pos.size != 0:
+                    cont = np.vstack(contour_PY[i] for i in pos)
+                    #hull = cv2.convexHull(cont)
+                    unified_PY.append(cont)
+            #
+            i1 = 0
+            area_pixels_py = []
+            data_f7 = data_f6.astype('f')
+            #
+            for contour in unified_PY:
+                cv2.drawContours(data_f7,[contour],0,i1+2,-1)
+                cnt = np.sum(data_f7==i1+2)
+                area_pixels_py.append(cnt)
+                i1 = i1 + 1
+
+            unified_PY = []
+            maximum = int(status_PY.max())+1
+            for i in xrange(maximum):
+                pos = np.where(status_PY==i)[0]
+                if pos.size != 0:
+                    cont = np.vstack(contour_PY[i] for i in pos)
+                    #hull = cv2.convexHull(cont)
+                    unified_PY.append(cont)
+        else:
+            unified_PY = []
+            data_f7 = data_f6.astype('f')
+            #
+            i1 = 0
+            area_pixels_py = []
+            for contour in contour_PY:
+                unified_PY.append(contour)
+                cv2.drawContours(data_f7,[contour],0,i1+2,-1)
+                cnt = np.sum(data_f7==i1+2)
+                area_pixels_py.append(cnt)
+                i1 = i1 + 1
+
+        #
+        ####################################################
+        # NEW 4A - MERGE ALL CALLS AND INCLUDE AREA MEASUREMENTS AND OTHER METRICS
+        unified = []
+        area_pixels = []
+        ADA_call = []
+        #
+        i1 = 0
+        for contour in unified_TT:
+            unified.append(contour)
+            area_pixels.append(area_pixels_tt[i1])
+            ADA_call.append(1)
+            i1 = i1 + 1
+        #
+        i1 = 0
+        for contour in unified_BW:
+            unified.append(contour)
+            area_pixels.append(area_pixels_bw[i1])
+            ADA_call.append(2)
+            i1 = i1 + 1
+        #
+        i1 = 0
+        for contour in unified_PY:
+            unified.append(contour)
+            area_pixels.append(area_pixels_py[i1])
+            ADA_call.append(4)
+            i1 = i1 + 1
+
+        # 4B store statistics for each region of interest (contour)
+        self.feat_a1 = []
+        self.feat_a2 = []
+        self.feat_bx = []
+        self.feat_by = []
+        self.feat_bw = []
+        self.feat_bh = []
+        self.feat_cx = []
+        self.feat_cy = []
+        self.call = []
+        #
+        i1 = 0
+        i1A = 0
+        for contour in unified:
+            # Evaluate area of regions of interest
+            # Evaluate bounding box of regions of interest
+            #feat_area = abs(cv2.contourArea(contour)+cv2.arcLength(contour, True))
+            #feat_area = abs(cv2.contourArea(contour))
+            feat_area = area_pixels[i1A]
+            feat_call = ADA_call[i1A]
+            feat_bbxy = cv2.boundingRect(contour)
+            (feat_bbxy_x, feat_bbxy_y, feat_bbxy_width, feat_bbxy_height) = feat_bbxy
+            #
+            if feat_area >= self.para_c1:
+                if feat_bbxy_width >= self.para_c2:
+                    if feat_bbxy_height >= self.para_c3:
+                    #if feat_bbxy_x >= self.para_c2:
+                    #if feat_bbxy_y >= self.para_c3:
+                        # save area feature
+                        self.feat_a1.append(feat_area)
+                        # save dimension features
+                        self.feat_bx.append(feat_bbxy_x)
+                        self.feat_by.append(feat_bbxy_y)
+                        self.feat_bw.append(feat_bbxy_width)
+                        self.feat_bh.append(feat_bbxy_height)
+                        # Evaluate centroid (and possibly higher order moments)
+                        moments1 = cv2.moments(contour)
+                        if moments1['m00'] != 0.0:
+                            self.feat_a2.append(moments1['m00'])
+                            self.feat_cx.append(moments1['m10']/moments1['m00'])
+                            self.feat_cy.append(moments1['m01']/moments1['m00'])
+                            # Add logic to make call (default to 1 for now)
+                        else:
+                            self.feat_a2.append(moments1['m00'])
+                            self.feat_cx.append(feat_bbxy_x+0.5*feat_bbxy_width)
+                            self.feat_cy.append(feat_bbxy_y+0.5*feat_bbxy_height)
+                        self.call.append(feat_call)
+                        i1 = i1 + 1
+            i1A = i1A + 1
+        self.nb = i1
+
+        ####################################################
         # Call ADA code - Step 2 (evaluate regions that match call criteria)
         self.tmp_data = np.logical_or((data_m6a < self.para_a4),(data_m3a > self.para_a3))* (data_m5a >= 2)
         self.tmp_data2 = data_m4a
 
-        self.on_ada_1()
+        # OLD - CALL COMBINED ADA BLOB EVALUATION
+        #self.on_ada_1()
 
         Nr = int(self.nb)
         #
@@ -542,6 +854,7 @@ class CompositeADABasic1(ADAModel):
         else:
             model_data = np.zeros((Nr,Nc),'float')
             for idx1 in range(Nr):
+                #model_data[idx1,0] = ADA_call[idx1]
                 model_data[idx1,0] = self.call[idx1]
                 model_data[idx1,1] = self.feat_cx[idx1]
                 model_data[idx1,2] = self.feat_cy[idx1]
@@ -551,8 +864,16 @@ class CompositeADABasic1(ADAModel):
                 #
                 j1 = np.round(self.feat_cx[idx1])
                 i1 = np.round(self.feat_cy[idx1])
+                if j1 >= Ny:
+                    j1 = Ny-1
+                elif j1 < 0:
+                    j1 = 0
+                if i1 >= Nx:
+                    i1 = Nx-1
+                elif i1 < 0:
+                    i1 = 0
                 #
-                model_data[idx1,0] = 2.0*data_f1[i1,j1] + data_f2[i1,j1]
+                #model_data[idx1,0] = 2.0*data_f1[i1,j1] + data_f2[i1,j1]
                 model_data[idx1,6] = data_m3t[i1,j1]
                 model_data[idx1,7] = data_m3a[i1,j1]
                 model_data[idx1,8] = data_m4a[i1,j1]
@@ -567,35 +888,133 @@ class CompositeADABasic1(ADAModel):
         #
         filename_2D = basename(filepath)
         #
+        if self.para_dimon > 0:
+            trans_x_pix2units = self.axis_x_resolution
+            trans_y_pix2units = self.axis_y_resolution
+            trans_a_pix2units = self.axis_x_resolution*self.axis_x_resolution
+            trans_t_stp2units = self.axis_time_resolution*para_cl*0.5
+            #
+            x_len = Ny*trans_x_pix2units
+            y_len = Nx*trans_x_pix2units
+            #
+            for idx1 in range(Nr):
+                model_data[idx1,1] =  model_data[idx1,1]*trans_x_pix2units
+                model_data[idx1,2] =  model_data[idx1,2]*trans_y_pix2units
+                model_data[idx1,3] =  model_data[idx1,3]*trans_a_pix2units
+                #
+                model_data[idx1,4] =  model_data[idx1,4]*trans_x_pix2units
+                model_data[idx1,5] =  model_data[idx1,5]*trans_y_pix2units
+                model_data[idx1,6] =  model_data[idx1,6]*trans_t_stp2units
+                #
+                model_data[idx1,9] =  model_data[idx1,9]*trans_x_pix2units
+                model_data[idx1,10] =  model_data[idx1,10]*trans_y_pix2units
+                model_data[idx1,11] =  model_data[idx1,11]*trans_a_pix2units
+                #
+            #
+            for ikey, ivalues in sorted(self.indmetrics.iteritems()):
+                if ivalues['index'] == '1':
+                    ivalues['unit'] = self.axis_x_units
+                elif ivalues['index'] == '2':
+                    ivalues['unit'] = self.axis_y_units
+                elif ivalues['index'] == '3':
+                    ivalues['unit'] = (self.axis_x_units + "*" + self.axis_y_units)
+                elif ivalues['index'] == '4':
+                    ivalues['unit'] = self.axis_x_units
+                elif ivalues['index'] == '5':
+                    ivalues['unit'] = self.axis_y_units
+                elif ivalues['index'] == '6':
+                    ivalues['unit'] = self.axis_time_units
+                elif ivalues['index'] == '9':
+                    ivalues['unit'] = self.axis_x_units
+                elif ivalues['index'] == '10':
+                    ivalues['unit'] = self.axis_y_units
+                elif ivalues['index'] == '11':
+                    ivalues['unit'] = (self.axis_x_units + "*" + self.axis_y_units)
+            #
+            self.para_t1 = self.para_t1*trans_t_stp2units
+            self.para_t2 = self.para_t2*trans_t_stp2units
+            TOF_bw_median = TOF_bw_median*trans_t_stp2units
+            #
+            # Store in res_outputdata
+            model_res_outputdata = []
+            model_res_outputdata.append(data_m2a)
+            model_res_outputdata.append(data_m2t*trans_t_stp2units)
+            model_res_outputdata.append(data_m3a)
+            model_res_outputdata.append(data_m3t*trans_t_stp2units)
+            model_res_outputdata.append(data_m4a)
+            model_res_outputdata.append(data_m1a)
+            model_res_outputdata.append(data_m1t*trans_t_stp2units)
+            model_res_outputdata.append(data_f1)
+            model_res_outputdata.append(data_f2)
+            #model_res_outputdata.append(data_m0f)  #change from data_f3
+            model_res_outputdata.append(data_f3)
+            model_res_outputdata.append(data_f4)
+            model_res_outputdata.append(data_f5)
+            model_res_outputdata.append(data_f6)
+            model_res_outputdata.append(data_m4t*trans_t_stp2units)
+            model_res_outputdata.append(data_m5a)
+            model_res_outputdata.append(data_m6a)
+            model_res_outputdata.append(ta)
+        else:
+            #
+            x_len = Ny
+            y_len = Nx
+            #
+            for ikey, ivalues in sorted(self.indmetrics.iteritems()):
+                if ivalues['index'] == '1':
+                    ivalues['unit'] = '()'
+                elif ivalues['index'] == '2':
+                    ivalues['unit'] = '()'
+                elif ivalues['index'] == '3':
+                    ivalues['unit'] = '()'
+                elif ivalues['index'] == '4':
+                    ivalues['unit'] = '()'
+                elif ivalues['index'] == '5':
+                    ivalues['unit'] = '()'
+                elif ivalues['index'] == '6':
+                    ivalues['unit'] = '()'
+                elif ivalues['index'] == '9':
+                    ivalues['unit'] = '()'
+                elif ivalues['index'] == '10':
+                    ivalues['unit'] = '()'
+                elif ivalues['index'] == '11':
+                    ivalues['unit'] = '()'
+            # Store in res_outputdata
+            model_res_outputdata = []
+            model_res_outputdata.append(data_m2a)
+            model_res_outputdata.append(data_m2t)
+            model_res_outputdata.append(data_m3a)
+            model_res_outputdata.append(data_m3t)
+            model_res_outputdata.append(data_m4a)
+            model_res_outputdata.append(data_m1a)
+            model_res_outputdata.append(data_m1t)
+            model_res_outputdata.append(data_f1)
+            model_res_outputdata.append(data_f2)
+            #model_res_outputdata.append(data_m0f)  #change from data_f3
+            model_res_outputdata.append(data_f3)
+            model_res_outputdata.append(data_f4)
+            model_res_outputdata.append(data_f5)
+            model_res_outputdata.append(data_f6)
+            model_res_outputdata.append(data_m4t)
+            model_res_outputdata.append(data_m5a)
+            model_res_outputdata.append(data_m6a)
+            model_res_outputdata.append(ta)
+        #
         model_res_outputpara = []
         model_res_outputpara.append(filename_2D)
         model_res_outputpara.append(str(self.axis_x_resolution)+' '+self.axis_x_units)
+        model_res_outputpara.append(str(x_len))
         model_res_outputpara.append(str(self.axis_y_resolution)+' '+self.axis_y_units)
+        model_res_outputpara.append(str(y_len))
         model_res_outputpara.append(str(self.axis_time_resolution)+' '+self.axis_time_units)
-        model_res_outputpara.append(str(datatmp_1p2))
         model_res_outputpara.append(str(self.para_t1))
         model_res_outputpara.append(str(self.para_t2))
+        model_res_outputpara.append(str(TOF_bw_median))
+        model_res_outputpara.append(str(datatmp_1p2))
         model_res_outputpara.append(str(Vppn_tt_median))
         model_res_outputpara.append(str(Vppn_bw_median))
-        model_res_outputpara.append(str(TOF_bw_median))
         model_res_outputpara.append(str(self.nb))
-
-        # Store in res_outputdata
-        model_res_outputdata = []
-        model_res_outputdata.append(data_m2a)
-        model_res_outputdata.append(data_m2t)
-        model_res_outputdata.append(data_m3a)
-        model_res_outputdata.append(data_m3t)
-        model_res_outputdata.append(data_m4a)
-        model_res_outputdata.append(data_m1a)
-        model_res_outputdata.append(data_m1t)
-        model_res_outputdata.append(data_f1)
-        model_res_outputdata.append(data_f2)
-        model_res_outputdata.append(data_m0f)  #change from data_f3
-        model_res_outputdata.append(data_m4t)
-        model_res_outputdata.append(data_m5a)
-        model_res_outputdata.append(data_m6a)
-        model_res_outputdata.append(ta)
+        model_res_outputpara.append(str(self.dac_curve_on))
         #
         filename_2D_long = filename_2D + '.met'
         thefile = open(filename_2D_long, 'w')
@@ -651,10 +1070,30 @@ class CompositeADABasic1(ADAModel):
         for idx1 in range(Nr):
             ix0 = np.round(self.feat_cx[idx1])
             iy0 = np.round(self.feat_cy[idx1])
+            if ix0 >= Ny:
+                ix0 = Ny-1
+            elif ix0 < 0:
+                ix0 = 0
+            if iy0 >= Nx:
+                iy0 = Nx-1
+            elif iy0 < 0:
+                iy0 = 0
+            #
             ix1 = np.round(self.feat_bx[idx1])
             iy1 = np.round(self.feat_by[idx1])
             ix2 = ix1 + 1 + np.round(self.feat_bw[idx1])
             iy2 = iy1 + 1 + np.round(self.feat_bh[idx1])
+            #
+            if ix2 >= Ny:
+                ix2 = Ny-1
+            if iy2 >= Nx:
+                iy2 = Nx-1
+                #
+            if ix2 >= Ny:
+                ix2 = Ny-1
+            if iy2 >= Nx:
+                iy2 = Nx-1
+            #
             data_i1 = data_m2a[iy1:iy2][:,ix1:ix2]
             data_i2 = data_m2t[iy1:iy2][:,ix1:ix2]
             data_i3 = data_m3a[iy1:iy2][:,ix1:ix2]
@@ -691,11 +1130,13 @@ class CompositeADABasic1(ADAModel):
             if idx == 0:
                 model_data_str[idx1][0] = "IND"
             elif idx == 1:
-                model_data_str[idx1][0] = "TT+"
+                model_data_str[idx1][0] = "TOF"
             elif idx == 2:
                 model_data_str[idx1][0] = "BW-"
             elif idx == 3:
-                model_data_str[idx1][0] = "TT+,BW-"
+                model_data_str[idx1][0] = "TOF,BW-"
+            elif idx == 4:
+                model_data_str[idx1][0] = "BWp"
             for idx2 in range(1,12):
                 #tmp_val = str(model_data_str[idx1][idx2])
                 tmp_val = "{0:.3f}".format(model_data_str[idx1][idx2])
@@ -716,6 +1157,9 @@ class CompositeADABasic1(ADAModel):
         # ADA Toolkit will display this text in the text output field automatically.
         # You can safely ignore this if you don't need to display a text summary.
         self.results = "Sample ADA Model completed successfully."
+
+        # Clear large data from memory.
+        self.inter_data = 0
 
     def select_filename(self):
         #"""loads data from selected .rf. file"""
@@ -789,6 +1233,8 @@ class CompositeADABasic1(ADAModel):
         self.axis_y_sample_points = tst.axes[1].sample_points
         self.axis_y_units = tst.axes[1].units
         #
+        self.dac_curve_on = 0
+        #
         for subset in tst.datasets:
             if 'waveform' in subset.data_type:
                 self.inter_data = subset.data
@@ -861,6 +1307,8 @@ class CompositeADABasic1(ADAModel):
         #
         self.inter_data = data
         #
+        self.dac_curve_on = 1
+        #
         fidin.close()
 
     def load_csc(self):
@@ -898,6 +1346,44 @@ class CompositeADABasic1(ADAModel):
         #
         self.axis_y = None
         self.axis_time = None
+        #
+        self.dac_curve_on = 1
+
+    #def on_ada_findblobs(self,data_input,data_output,contour_list,N_list):
+    def on_ada_findblobs(self,data_input):
+        #
+        # 1) Pass data to temporary file
+        filename = "imgtemp.png"
+        data2 = data_input.astype('uint8')
+        image1 = Image.fromarray(data2)
+        image1.save(filename)
+        #
+        # 2) loads data to OpenCV
+        image2 = cv2.imread(filename, cv2.CV_LOAD_IMAGE_GRAYSCALE)
+        #
+        # 3) find regions of interest using OpenCV findContours algorithm
+        contours, hierarchy = cv2.findContours( image2, cv.CV_RETR_TREE, cv.CV_CHAIN_APPROX_SIMPLE)
+        nb_cont = len(contours)
+
+        # 4) sort based on sum of contour area and perimeter metrics
+        contours = sorted(contours, key=lambda contour: (cv2.contourArea(contour) + cv2.arcLength(contour, True)), reverse=True)
+        # 5) track only contours that satisfy minimum area, length and width criteria
+        i1 = 0
+        contour_list = []
+        for contour in contours:
+            # Evaluate area of regions of interest
+            feat_area = abs(cv2.contourArea(contour)+cv2.arcLength(contour, True))
+            # Evaluate bounding box of regions of interest
+            feat_bbxy = cv2.boundingRect(contour)
+            (feat_bbxy_x, feat_bbxy_y, feat_bbxy_width, feat_bbxy_height) = feat_bbxy
+            # Evaluate if minimum area, length and width criteria are satisfied
+            if feat_area >= self.para_c1:
+                if feat_bbxy_x >= self.para_c2:
+                    if feat_bbxy_y >= self.para_c3:
+                        # store contour
+                        contour_list.append(contour)
+                        i1 = i1 + 1
+        return contour_list
 
     def on_ada_1(self):
         # 1) Get threshold and apply to amplitude data
@@ -924,7 +1410,8 @@ class CompositeADABasic1(ADAModel):
         self.nb = nb_cont
         self.contours = contours
         #
-        contours = sorted(contours, key=lambda contour:cv2.contourArea(contour), reverse=True)
+        contours = sorted(contours, key=lambda contour: (cv2.contourArea(contour) + cv2.arcLength(contour, True)), reverse=True)
+        #contours = sorted(contours, key=lambda contour:cv2.contourArea(contour), reverse=True)
         # 5) initial variables for ADA feature vectors
         #self.feat_a1 = np.zeros(nb_cont,'float')
         #self.feat_a2 = np.zeros(nb_cont,'float')
@@ -949,11 +1436,12 @@ class CompositeADABasic1(ADAModel):
         #attr1 = self.cellAttr = wx.grid.GridCellAttr()
         #attr1.SetBackgroundColour(color)
         # 6) store statistics for each region of interest (contour)
-        i1 = 0;
+        i1 = 0
         for contour in contours:
             # Evaluate area of regions of interest
             # Evaluate bounding box of regions of interest
-            feat_area = abs(cv2.contourArea(contour))
+            feat_area = abs(cv2.contourArea(contour)+cv2.arcLength(contour, True))
+#            feat_area = abs(cv2.contourArea(contour))
             feat_bbxy = cv2.boundingRect(contour)
             (feat_bbxy_x, feat_bbxy_y, feat_bbxy_width, feat_bbxy_height) = feat_bbxy
             #
@@ -988,11 +1476,15 @@ class CompositeADABasic1(ADAModel):
         #X = 10*np.random.rand(300,400)
         X = self.res_outputdata[0]
         #
+        x_len = float(self.res_outputpara[2])
+        y_len = float(self.res_outputpara[4])
+        #
         axes_hdl.clear()
         fig_hdl.clear() #in case there are extra axes like colorbars
         axes_hdl = fig_hdl.add_subplot(111, navigate=True)
         #
-        cax = axes_hdl.imshow(X)
+        cax = axes_hdl.imshow(X,origin='lower',extent=[0,x_len,0,y_len],interpolation='nearest')
+        #cax = axes_hdl.imshow(X,origin='lower',extent=[0,x_len,0,y_len],interpolation='nearest',aspect='auto')
         fig_hdl.colorbar(cax)
         #
         Nr1 = len(self._data)
@@ -1000,11 +1492,16 @@ class CompositeADABasic1(ADAModel):
             xc = self._data[idx][1]
             yc = self._data[idx][2]
             tc = str(idx+1)
-            axes_hdl.text(xc,yc,tc)
+            axes_hdl.text(xc,yc,tc,weight='bold')
             #
         #axes_hdl.set_title("C-scan")
-        axes_hdl.set_xlabel("X Axis")
-        axes_hdl.set_ylabel("Y Axis")
+        for ikey, ivalues in sorted(self.indmetrics.iteritems()):
+            if ivalues['index'] == '1':
+                xlbl = ivalues['unit']
+            elif ivalues['index'] == '2':
+                ylbl = ivalues['unit']
+        axes_hdl.set_xlabel("x, " + xlbl)
+        axes_hdl.set_ylabel("y, " + ylbl)
         #
         #axes_hdl.xlims = axes_hdl.get_xlim()
         #axes_hdl.ylims = axes_hdl.get_ylim()
@@ -1019,11 +1516,11 @@ class CompositeADABasic1(ADAModel):
         fig_hdl.clear() #in case there are extra axes like colorbars
         axes_hdl = fig_hdl.add_subplot(111, navigate=True)
         #
-        cax = axes_hdl.imshow(X)
+        cax = axes_hdl.imshow(X,origin='lower',interpolation='nearest',aspect='auto')
         fig_hdl.colorbar(cax)
         #
-        axes_hdl.set_xlabel("X Axis")
-        axes_hdl.set_ylabel("Y Axis")
+        axes_hdl.set_xlabel("x (pixels)")
+        axes_hdl.set_ylabel("y (pixels)")
         # Example of plotting - if you have no primary plot, no need to define a plot1 method.
         #axes_hdl.plot([1,2,3,4], [1,4,9,16], 'ro')
         #axes_hdl.axis([0, 6, 0, 20])
@@ -1041,11 +1538,11 @@ class CompositeADABasic1(ADAModel):
         fig_hdl.clear() #in case there are extra axes like colorbars
         axes_hdl = fig_hdl.add_subplot(111, navigate=True)
         #
-        cax = axes_hdl.imshow(X)
+        cax = axes_hdl.imshow(X,origin='lower',interpolation='nearest',aspect='auto')
         fig_hdl.colorbar(cax)
         #
-        axes_hdl.set_xlabel("X Axis")
-        axes_hdl.set_ylabel("Y Axis")
+        axes_hdl.set_xlabel("x (pixels)")
+        axes_hdl.set_ylabel("y (pixels)")
         # Example of plotting - if you have no secondary plot, no need to define a plot2 method.
         #t = np.arange(0., 5., 0.2)
         #axes_hdl.plot(t, t, 'r--', t, t**2, 'bs', t, t**3, 'g^')
@@ -1053,3 +1550,14 @@ class CompositeADABasic1(ADAModel):
         #axes_hdl.set_xlabel("X Axis")
         #axes_hdl.set_ylabel("Y Axis")
         #axes_hdl.legend(("Linear", "Square", "Cubic"), 'upper right', title="Functions", shadow=True, fancybox=True)
+
+    def find_if_close(self, cnt1, cnt2, dist1):
+        # from http://dsp.stackexchange.com/questions/2564/opencv-c-connect-nearby-contours-based-on-distance-between-them
+        row1,row2 = cnt1.shape[0],cnt2.shape[0]
+        for i in xrange(row1):
+            for j in xrange(row2):
+                dist = np.linalg.norm(cnt1[i]-cnt2[j])
+                if abs(dist) < dist1:
+                    return True
+                elif i==row1-1 and j==row2-1:
+                    return False
