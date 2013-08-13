@@ -13,6 +13,7 @@ import views.preview_window as preview_window
 import views.dialogs as dlg
 from views import podtk
 from views import adatk
+from views import DSF_podtk
 import controllers.pathfinder as pathfinder
 import controllers.open_file as open_file
 import wx
@@ -696,3 +697,8 @@ class MainUIController(object):
         """Handles request to run ADA Toolkit"""
         adatk_ui = adatk.ADAWindow(parent=self.view)
         adatk_ui.Show()
+
+    def on_run_DSF_podtk(self, evt):
+        """Handles request to run TRI/Austin POD Toolkit"""
+        podtk_ui = DSF_podtk.DSF_PODWindow(parent=self.view)
+        podtk_ui.Show()
